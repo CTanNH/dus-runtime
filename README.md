@@ -11,6 +11,8 @@ DUS is not a new button toolkit and it is not a liquid shader toy. The core idea
 
 The current repo is an experimental runtime plus one canonical demo: an AI knowledge workspace where answers, evidence, contradictions, citations, tokens, and figures co-exist inside a single navigable surface.
 
+![DUS knowledge workspace](./docs/assets/knowledge-workspace.png)
+
 ## What DUS Is
 
 DUS is a headless runtime with three layers:
