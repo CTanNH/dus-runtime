@@ -1,0 +1,30 @@
+{
+  "name": "dus-runtime",
+  "version": "0.1.0",
+  "description": "Loss-driven semantic layout runtime for AI-native interfaces.",
+  "type": "module",
+  "private": false,
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CTanNH/dus-runtime.git"
+  },
+  "homepage": "https://github.com/CTanNH/dus-runtime",
+  "bugs": {
+    "url": "https://github.com/CTanNH/dus-runtime/issues"
+  },
+  "scripts": {
+    "check:js": "node ./tools/check-js.mjs",
+    "serve": "npx serve . -l 8000",
+    "serve:ps": "powershell -ExecutionPolicy Bypass -File ./tools/static-server.ps1 -Root . -Port 8000"
+  },
+  "keywords": [
+    "ui",
+    "layout",
+    "solver",
+    "webgpu",
+    "semantic-ui",
+    "ai-native",
+    "msdf"
+  ]
+}

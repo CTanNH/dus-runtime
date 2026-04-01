@@ -1,0 +1,151 @@
+import { buildScaffold } from "./scaffold.js";
+import { createHybridSolver } from "./solver.js";
+import { cloneScene, poseToRect, rectContainsPoint } from "./utils.js";
+
+function normalizeScene(scene) {
+  return cloneScene({
+    nodes: scene.nodes ?? [],
+    relations: scene.relations ?? [],
+    constraints: scene.constraints ?? [],
+    viewport: scene.viewport,
+    interactionField: scene.interactionField
+  });
+}
+
+function materializeLayout(scene, solverState) {
+  const sceneNodeById = new Map(scene.nodes.map((node) => [node.id, node]));
+  const nodePoses = solverState.nodes.map((node) => ({
+    id: node.id,
+    kind: node.kind,
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height,
+    targetX: node.targetX,
+    targetY: node.targetY,
+    targetWidth: node.targetWidth,
+    targetHeight: node.targetHeight,
+    confidence: node.confidence,
+    importance: node.importance,
+    stiffness: node.stiffness,
+    clusterId: node.clusterId,
+    bridgeRef: node.bridgeRef,
+    contentRef: sceneNodeById.get(node.id)?.contentRef ?? null,
+    rendererPayload: sceneNodeById.get(node.id)?.rendererPayload ?? null,
+    metadata: sceneNodeById.get(node.id)?.metadata ?? null,
+    visible: node.visible,
+    overlapHeat: node.overlapHeat,
+    focusInfluence: node.focusInfluence,
+    motionX: node.motionX,
+    motionY: node.motionY
+  }));
+
+  return {
+    nodePoses,
+    visibility: new Map(nodePoses.map((pose) => [pose.id, pose.visible])),
+    debugLosses: solverState.debugState?.nodes ?? [],
+    debugConstraintState: solverState.debugState?.activeConstraints ?? []
+  };
+}
+
+export function createDusRuntime(config = {}) {
+  const solver = config.solver ?? createHybridSolver(config);
+
+  let scene = normalizeScene({ nodes: [], relations: [], constraints: [] });
+  let scaffold = null;
+  let solverState = null;
+  let layout = { nodePoses: [], visibility: new Map(), debugLosses: [], debugConstraintState: [] };
+  let debugState = { totals: {}, convergenceTrace: [], nodes: [], activeConstraints: [] };
+  let interactionField = {
+    cursorX: 0.0,
+    cursorY: 0.0,
+    cursorVx: 0.0,
+    cursorVy: 0.0,
+    focusNodeId: null,
+    selectedNodeId: null,
+    queryPulse: 0.0
+  };
+  let hostBridge = null;
+
+  function publish() {
+    layout = materializeLayout(scene, solverState);
+    debugState = solverState.debugState ?? debugState;
+    if (hostBridge?.update) {
+      hostBridge.update({ scene, layout, debugState, interactionField });
+    } else if (hostBridge?.mount) {
+      hostBridge.mount({ scene, layout, debugState, interactionField });
+    }
+  }
+
+  return {
+    setScene(nextScene) {
+      scene = normalizeScene(nextScene);
+      interactionField = {
+        ...interactionField,
+        ...(scene.interactionField ?? {})
+      };
+      scaffold = buildScaffold(scene, { seed: config.seed ?? 1 });
+      solverState = solver.initialize(scene, scaffold);
+      solverState.debugState = {
+        totals: {},
+        convergenceTrace: [],
+        nodes: [],
+        activeConstraints: []
+      };
+      publish();
+    },
+
+    step(dt = 1.0 / 60.0) {
+      if (!solverState) return layout;
+      solver.step(solverState, scene, scaffold, interactionField, dt, config.iterationsPerFrame ?? 1);
+      publish();
+      return layout;
+    },
+
+    solve(iterations = 1, dt = 1.0 / 60.0) {
+      if (!solverState) return layout;
+      solver.step(solverState, scene, scaffold, interactionField, dt, iterations);
+      publish();
+      return layout;
+    },
+
+    getLayout() {
+      return layout;
+    },
+
+    getDebugState() {
+      return debugState;
+    },
+
+    hitTest(point) {
+      const poses = layout.nodePoses.slice().sort((left, right) => {
+        const selectedDelta = (right.id === interactionField.selectedNodeId ? 1 : 0) - (left.id === interactionField.selectedNodeId ? 1 : 0);
+        if (selectedDelta !== 0) return selectedDelta;
+        return right.importance - left.importance;
+      });
+
+      for (const pose of poses) {
+        const rect = poseToRect(pose);
+        if (rectContainsPoint(rect, point.x, point.y)) return pose;
+      }
+      return null;
+    },
+
+    bindHostBridge(bridge) {
+      hostBridge = bridge;
+      if (hostBridge?.mount) {
+        hostBridge.mount({ scene, layout, debugState, interactionField });
+      }
+    },
+
+    setInteractionField(nextField) {
+      interactionField = {
+        ...interactionField,
+        ...nextField
+      };
+      if (hostBridge?.update) {
+        hostBridge.update({ scene, layout, debugState, interactionField });
+      }
+    }
+  };
+}
