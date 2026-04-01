@@ -75,6 +75,8 @@ export function createDomHostBridge(options) {
   });
 
   const buttons = {
+    benchmark: createButton("Benchmark", () => options.actions.switchDemo("field")),
+    workspace: createButton("Workspace", () => options.actions.switchDemo("knowledge")),
     plain: createButton("Plain", () => options.actions.setViewPreset("plain")),
     field: createButton("Field", () => options.actions.setViewPreset("field")),
     debug: createButton("Debug", () => options.actions.setViewPreset("debug")),
@@ -85,7 +87,18 @@ export function createDomHostBridge(options) {
     replay: createButton("Replay", () => options.actions.replay())
   };
 
-  controls.append(buttons.plain, buttons.field, buttons.debug, buttons.fit, buttons.targets, buttons.heat, buttons.pause, buttons.replay);
+  controls.append(
+    buttons.benchmark,
+    buttons.workspace,
+    buttons.plain,
+    buttons.field,
+    buttons.debug,
+    buttons.fit,
+    buttons.targets,
+    buttons.heat,
+    buttons.pause,
+    buttons.replay
+  );
   root.append(controls, inspector, callout);
   document.body.append(root);
 
@@ -95,6 +108,7 @@ export function createDomHostBridge(options) {
     },
 
     update(viewModel) {
+      const demo = viewModel.scene.metadata ?? {};
       const selectionId = viewModel.interactionField.selectedNodeId;
       const selected = selectionId
         ? viewModel.layout.nodePoses.find((pose) => pose.id === selectionId)
@@ -106,6 +120,8 @@ export function createDomHostBridge(options) {
 
       inspector.textContent = [
         `DUS runtime`,
+        `demo      ${demo.title ?? demo.demoId ?? "scene"}`,
+        demo.subtitle ? `intent    ${demo.subtitle}` : null,
         `view      ${options.getViewPreset()}`,
         `paused    ${options.getPaused() ? "yes" : "no"}`,
         `nodes     ${viewModel.layout.nodePoses.length}`,
@@ -113,10 +129,13 @@ export function createDomHostBridge(options) {
         `trace     ${makeSparkline(viewModel.debugState.convergenceTrace ?? [])}`,
         "",
         `shortcuts`,
-        `1 plain · 2 field · 3 debug · f fit · r replay · space pause`,
+        `1 plain · 2 field · 3 debug · b benchmark · k workspace`,
+        `f fit · r replay · space pause`,
+        `benchmark / workspace buttons switch the official demo lane`,
         "",
         `active constraints`,
         `${(viewModel.debugState.activeConstraints ?? []).map((constraint) => `${constraint.type}:${constraint.mode}`).join(" · ")}`,
+        demo.description ? `\n${demo.description}` : null,
         "",
         selected && selectedDebug
           ? [
@@ -130,6 +149,9 @@ export function createDomHostBridge(options) {
           : "selected  none"
       ].join("\n");
 
+      const demoId = demo.demoId ?? options.getDemoId?.();
+      buttons.benchmark.style.opacity = demoId === "field" ? "1" : "0.65";
+      buttons.workspace.style.opacity = demoId === "knowledge" ? "1" : "0.65";
       const preset = options.getViewPreset();
       buttons.plain.style.opacity = preset === "plain" ? "1" : "0.65";
       buttons.field.style.opacity = preset === "field" ? "1" : "0.65";

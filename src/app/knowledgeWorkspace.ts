@@ -304,6 +304,13 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
   relations.push({ from: "token-bridge", to: "evidence-bridge", type: "belongs_to", weight: 0.64, idealDistance: 0.94 });
 
   return {
+    metadata: {
+      demoId: "knowledge",
+      title: "Knowledge Workspace",
+      subtitle: "Task demo for AI-native interfaces",
+      description: "A narrower workspace that tries to prove usefulness: answers, evidence, contradictions, figures, and citations share one solvable reading surface.",
+      intent: "task"
+    },
     nodes,
     relations,
     constraints,

@@ -6,8 +6,53 @@ import { createAssetProvider } from "./adapters/webgpu/assetProvider.js";
 import { createWebGpuRendererAdapter } from "./adapters/webgpu/renderer.js";
 import { createDomHostBridge } from "./adapters/dom/hostBridge.js";
 import { buildKnowledgeWorkspaceScene } from "./app/knowledgeWorkspace.js";
+import { buildFieldBenchmarkScene } from "./app/fieldBenchmark.js";
 
-function fitCameraToBounds(bounds) {
+const DEMO_SPECS = {
+  field: {
+    id: "field",
+    buildScene: buildFieldBenchmarkScene,
+    defaultView: "field",
+    seed: 19,
+    iterationsPerFrame: 1,
+    initialSolveIterations: 84,
+    fitScale: 0.97,
+    solverParams: {
+      targetWeight: 3.6,
+      overlapWeight: 2.2,
+      orderWeight: 0.76,
+      relationWeight: 1.04,
+      learningRate: 0.078,
+      hardPadding: 0.06,
+      textImagePadding: 0.12
+    }
+  },
+  knowledge: {
+    id: "knowledge",
+    buildScene: buildKnowledgeWorkspaceScene,
+    defaultView: "plain",
+    seed: 11,
+    iterationsPerFrame: 2,
+    initialSolveIterations: 120,
+    fitScale: 0.92,
+    solverParams: {
+      targetWeight: 4.2,
+      overlapWeight: 2.6,
+      orderWeight: 1.2,
+      relationWeight: 1.0,
+      learningRate: 0.085,
+      hardPadding: 0.08,
+      textImagePadding: 0.14
+    }
+  }
+};
+
+function resolveDemoSpec() {
+  const demoId = new URLSearchParams(window.location.search).get("demo")?.toLowerCase();
+  return DEMO_SPECS[demoId] ?? DEMO_SPECS.field;
+}
+
+function fitCameraToBounds(bounds, fitScale = 0.92) {
   const width = Math.max(bounds.maxX - bounds.minX, 1.0);
   const height = Math.max(bounds.maxY - bounds.minY, 1.0);
   const screenWidth = window.innerWidth;
@@ -19,7 +64,7 @@ function fitCameraToBounds(bounds) {
   return {
     x: (bounds.minX + bounds.maxX) * 0.5,
     y: (bounds.minY + bounds.maxY) * 0.5,
-    zoom: clamp(Math.min(zoomX, zoomY) * 0.92, 0.08, 1.0)
+    zoom: clamp(Math.min(zoomX, zoomY) * fitScale, 0.08, 1.0)
   };
 }
 
@@ -49,6 +94,7 @@ function layoutBounds(layout, padding = 0.42) {
 }
 
 async function main() {
+  const currentDemo = resolveDemoSpec();
   document.body.style.margin = "0";
   document.body.style.background = "#03070f";
   document.body.style.overflow = "hidden";
@@ -58,16 +104,29 @@ async function main() {
   document.body.replaceChildren(canvas);
 
   const assetProvider = await createAssetProvider();
-  const scene = await buildKnowledgeWorkspaceScene(assetProvider);
-  const runtime = createDusRuntime({ seed: 11, iterationsPerFrame: 2 });
+  const builtScene = await currentDemo.buildScene(assetProvider);
+  const scene = {
+    ...builtScene,
+    metadata: {
+      demoId: currentDemo.id,
+      ...(builtScene.metadata ?? {})
+    }
+  };
+  document.title = `DUS · ${scene.metadata.title ?? currentDemo.id}`;
+
+  const runtime = createDusRuntime({
+    seed: currentDemo.seed,
+    iterationsPerFrame: currentDemo.iterationsPerFrame,
+    params: currentDemo.solverParams
+  });
   runtime.setScene(scene);
-  runtime.solve(120, 1.0 / 60.0);
+  runtime.solve(currentDemo.initialSolveIterations, 1.0 / 60.0);
 
   const renderer = await createWebGpuRendererAdapter({ canvas, assetProvider });
   renderer.setScene(scene);
   renderer.resize();
 
-  let camera = fitCameraToBounds(layoutBounds(runtime.getLayout()));
+  let camera = fitCameraToBounds(layoutBounds(runtime.getLayout()), currentDemo.fitScale);
   renderer.setCamera(camera);
   let hasManualCamera = false;
 
@@ -100,7 +159,7 @@ async function main() {
   function applyViewPreset(preset) {
     if (preset === "field") {
       renderer.setMode("field");
-      renderer.setDebugFlags({ showTargets: true, showHeat: false });
+      renderer.setDebugFlags({ showTargets: false, showHeat: false });
       return;
     }
 
@@ -111,20 +170,27 @@ async function main() {
     }
 
     renderer.setMode("plain");
-    renderer.setDebugFlags({ showTargets: true, showHeat: false });
+    renderer.setDebugFlags({ showTargets: false, showHeat: false });
   }
 
   function fitCameraToLayout() {
-    camera = fitCameraToBounds(layoutBounds(runtime.getLayout()));
+    camera = fitCameraToBounds(layoutBounds(runtime.getLayout()), currentDemo.fitScale);
     renderer.setCamera(camera);
     hasManualCamera = false;
   }
 
-  applyViewPreset("plain");
+  function switchDemo(nextDemoId) {
+    if (nextDemoId === currentDemo.id) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("demo", nextDemoId);
+    window.location.href = url.toString();
+  }
+
+  applyViewPreset(currentDemo.defaultView);
 
   const replay = () => {
     runtime.setScene(scene);
-    runtime.solve(120, 1.0 / 60.0);
+    runtime.solve(currentDemo.initialSolveIterations, 1.0 / 60.0);
     interaction.selectedNodeId = null;
     interaction.focusNodeId = null;
     interaction.clickImpulse = 0.0;
@@ -134,6 +200,9 @@ async function main() {
 
   const bridge = createDomHostBridge({
     actions: {
+      switchDemo(nextDemoId) {
+        switchDemo(nextDemoId);
+      },
       setViewPreset(preset) {
         applyViewPreset(preset);
       },
@@ -160,6 +229,7 @@ async function main() {
       if (mode === "field") return "field";
       return "plain";
     },
+    getDemoId: () => currentDemo.id,
     getPaused: () => paused,
     getShowTargets: () => renderer.getDebugFlags().showTargets,
     getShowHeat: () => renderer.getDebugFlags().showHeat,
@@ -313,6 +383,8 @@ async function main() {
       event.preventDefault();
       paused = !paused;
     }
+    if (event.key.toLowerCase() === "b") switchDemo("field");
+    if (event.key.toLowerCase() === "k") switchDemo("knowledge");
     if (event.key.toLowerCase() === "f") fitCameraToLayout();
     if (event.key.toLowerCase() === "r") replay();
   };
