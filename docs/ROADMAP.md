@@ -54,6 +54,12 @@ Need:
 - deterministic replay
 - test fixtures for scaffold and solve
 
+Progress so far:
+
+- scene normalization and contract diagnostics are now explicit in core
+- deterministic headless fixture scenes now exist
+- runtime-level deterministic checks now run in `npm run test:core`
+
 Exit criteria:
 
 - another developer could build a new renderer or host bridge without editing core solver logic
@@ -145,7 +151,8 @@ The repo is ready for broader public attention when all of these are true:
 ## Immediate Next Work
 
 - make the solver/debug layers easier to inspect
-- formalize the scene and constraint schema
-- add deterministic fixtures
+- harden the scene/constraint schema beyond the current normalization layer
+- export explainability data as a real runtime surface, not only an overlay
+- benchmark baseline vs knowledge workspace on one explicit task
 - refine the knowledge workspace into a real task demo
 - decide what belongs in core vs adapter vs app

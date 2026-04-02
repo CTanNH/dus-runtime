@@ -69,6 +69,7 @@ DUS tries to make those properties first-class instead of bolting them on after 
 src/
   core/
     contracts.js      scene contract normalization + diagnostics
+    fixtures.js       deterministic headless fixture scene
     runtime.js        headless runtime API
     scaffold.js       deterministic target/scaffold layout
     solver.js         hybrid loss + projection solver
@@ -119,6 +120,13 @@ Before solving, scenes are normalized through a contract layer:
 - dangling relations are dropped with warnings
 - unknown kinds/types fall back to safe defaults
 - viewport and interaction fields are normalized into a stable runtime shape
+
+The repo now also ships a deterministic core fixture plus a runtime-level test harness:
+
+```powershell
+cd D:\Projects\DUS
+npm run test:core
+```
 
 ## Demo
 

@@ -15,6 +15,7 @@
   },
   "scripts": {
     "check:js": "node ./tools/check-js.mjs",
+    "test:core": "node ./tools/test-core.mjs",
     "serve": "npx serve . -l 8000",
     "serve:ps": "powershell -ExecutionPolicy Bypass -File ./tools/static-server.ps1 -Root . -Port 8000"
   },
