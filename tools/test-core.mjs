@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { normalizeSceneContract } from "../src/core/contracts.js";
+import { createBenchmarkHarness } from "../src/core/benchmark.js";
 import { createFixtureScene } from "../src/core/fixtures.js";
 import { buildScaffold } from "../src/core/scaffold.js";
 import { createDusRuntime } from "../src/core/runtime.js";
@@ -129,4 +130,67 @@ await run("runtime exports explainability state and node narratives", async () =
   assert.ok(explainedRisk.narrative.includes("node"));
 });
 
-console.log("Passed 5 core runtime checks.");
+await run("benchmark harness records comparable task runs", async () => {
+  let now = 0;
+  const store = {
+    value: "",
+    getItem() {
+      return this.value || null;
+    },
+    setItem(_key, value) {
+      this.value = value;
+    }
+  };
+  const tasks = [
+    {
+      id: "claim-support",
+      title: "Trace support",
+      prompt: "Select the claim, evidence, and citation.",
+      nodeIds: ["claim", "support", "citation"],
+      successNodeIds: ["claim", "support", "citation"],
+      successMode: "all"
+    }
+  ];
+
+  const knowledgeHarness = createBenchmarkHarness({
+    demoId: "knowledge",
+    tasks,
+    storage: store,
+    now: () => now
+  });
+
+  knowledgeHarness.startTask("claim-support");
+  knowledgeHarness.recordSelection("claim");
+  now += 1200;
+  knowledgeHarness.recordSelection("support");
+  knowledgeHarness.recordAction("pan");
+  now += 800;
+  knowledgeHarness.recordSelection("citation");
+
+  const knowledgeState = knowledgeHarness.getState();
+  assert.equal(knowledgeState.activeRun, null);
+  assert.equal(knowledgeState.tasks[0].lastRun.completed, true);
+  assert.equal(knowledgeState.tasks[0].lastRun.actionCounts.pan, 1);
+
+  now = 0;
+  const baselineHarness = createBenchmarkHarness({
+    demoId: "baseline",
+    tasks,
+    storage: store,
+    now: () => now
+  });
+
+  baselineHarness.startTask("claim-support");
+  baselineHarness.recordSelection("claim");
+  now += 1500;
+  baselineHarness.recordSelection("support");
+  now += 1000;
+  baselineHarness.recordSelection("citation");
+
+  const baselineState = baselineHarness.getState();
+  assert.ok(baselineState.tasks[0].comparison);
+  assert.equal(baselineState.tasks[0].comparison.demoId, "knowledge");
+  assert.ok(baselineState.tasks[0].comparison.elapsedMs > 0);
+});
+
+console.log("Passed 6 core runtime checks.");

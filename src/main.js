@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { createDusRuntime } from "./core/runtime.js";
+import { createBenchmarkHarness } from "./core/benchmark.js";
 import { clamp } from "./core/utils.js";
 import { createAssetProvider } from "./adapters/webgpu/assetProvider.js";
 import { createWebGpuRendererAdapter } from "./adapters/webgpu/renderer.js";
@@ -68,7 +69,7 @@ const DEMO_SPECS = {
 
 function resolveDemoSpec() {
   const demoId = new URLSearchParams(window.location.search).get("demo")?.toLowerCase();
-  return DEMO_SPECS[demoId] ?? DEMO_SPECS.field;
+  return DEMO_SPECS[demoId] ?? DEMO_SPECS.knowledge;
 }
 
 function fitCameraToBounds(bounds, fitScale = 0.92) {
@@ -138,6 +139,12 @@ async function main() {
     iterationsPerFrame: currentDemo.iterationsPerFrame,
     params: currentDemo.solverParams
   });
+  const benchmark = createBenchmarkHarness({
+    demoId: currentDemo.id,
+    tasks: scene.metadata.tasks ?? [],
+    storage: window.localStorage,
+    now: () => performance.now()
+  });
   runtime.setScene(scene);
   runtime.solve(currentDemo.initialSolveIterations, 1.0 / 60.0);
 
@@ -173,6 +180,7 @@ async function main() {
   let previousWorldX = 0.0;
   let previousWorldY = 0.0;
   let previousPointerT = 0.0;
+  let previousFocusNodeId = null;
   let lastFrameTime = performance.now() * 0.001;
 
   function applyViewPreset(preset) {
@@ -198,6 +206,33 @@ async function main() {
     hasManualCamera = false;
   }
 
+  function frameNodes(nodeIds) {
+    const poses = runtime.getLayout().nodePoses.filter((entry) => nodeIds.includes(entry.id));
+    if (!poses.length) return;
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const pose of poses) {
+      minX = Math.min(minX, pose.x - pose.width * 1.1);
+      maxX = Math.max(maxX, pose.x + pose.width * 1.1);
+      minY = Math.min(minY, pose.y - pose.height * 1.35);
+      maxY = Math.max(maxY, pose.y + pose.height * 1.35);
+    }
+
+    interaction.focusNodeId = poses[0].id;
+    interaction.queryPulse = Math.max(interaction.queryPulse, 0.8);
+    camera = fitCameraToBounds({
+      minX,
+      maxX,
+      minY,
+      maxY
+    }, Math.min(1.02, currentDemo.fitScale + 0.06));
+    renderer.setCamera(camera);
+    hasManualCamera = false;
+  }
+
   function focusNode(nodeId) {
     const pose = runtime.getLayout().nodePoses.find((entry) => entry.id === nodeId);
     if (!pose) return;
@@ -219,32 +254,15 @@ async function main() {
   }
 
   function focusNodes(nodeIds) {
-    const poses = runtime.getLayout().nodePoses.filter((entry) => nodeIds.includes(entry.id));
-    if (!poses.length) return;
+    if (!nodeIds.length) return;
+    interaction.selectedNodeId = nodeIds[0];
+    frameNodes(nodeIds);
+  }
 
-    interaction.selectedNodeId = poses[0].id;
-    interaction.focusNodeId = poses[0].id;
-    interaction.queryPulse = Math.max(interaction.queryPulse, 0.9);
-
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (const pose of poses) {
-      minX = Math.min(minX, pose.x - pose.width * 1.1);
-      maxX = Math.max(maxX, pose.x + pose.width * 1.1);
-      minY = Math.min(minY, pose.y - pose.height * 1.35);
-      maxY = Math.max(maxY, pose.y + pose.height * 1.35);
-    }
-
-    camera = fitCameraToBounds({
-      minX,
-      maxX,
-      minY,
-      maxY
-    }, Math.min(1.02, currentDemo.fitScale + 0.06));
-    renderer.setCamera(camera);
-    hasManualCamera = false;
+  function runTask(taskId, nodeIds) {
+    benchmark.startTask(taskId);
+    interaction.selectedNodeId = null;
+    frameNodes(nodeIds);
   }
 
   function switchDemo(nextDemoId) {
@@ -257,6 +275,7 @@ async function main() {
   applyViewPreset(currentDemo.defaultView);
 
   const replay = () => {
+    benchmark.recordAction("replay");
     runtime.setScene(scene);
     runtime.solve(currentDemo.initialSolveIterations, 1.0 / 60.0);
     interaction.selectedNodeId = null;
@@ -277,6 +296,9 @@ async function main() {
       focusNodes(nodeIds) {
         focusNodes(nodeIds);
       },
+      runTask(taskId, nodeIds) {
+        runTask(taskId, nodeIds);
+      },
       setViewPreset(preset) {
         applyViewPreset(preset);
       },
@@ -292,6 +314,7 @@ async function main() {
         paused = !paused;
       },
       fitCamera() {
+        benchmark.recordAction("fit");
         fitCameraToLayout();
       },
       replay
@@ -336,6 +359,12 @@ async function main() {
   const focusAtPoint = (world) => {
     const hit = runtime.hitTest(world);
     interaction.focusNodeId = hit?.id ?? null;
+    if (interaction.focusNodeId && interaction.focusNodeId !== previousFocusNodeId) {
+      previousFocusNodeId = interaction.focusNodeId;
+      benchmark.recordFocus(interaction.focusNodeId);
+    } else if (!interaction.focusNodeId) {
+      previousFocusNodeId = null;
+    }
     return hit;
   };
 
@@ -363,7 +392,11 @@ async function main() {
 
     const dx = event.clientX - downScreenX;
     const dy = event.clientY - downScreenY;
-    if (!isPanning && dx * dx + dy * dy > 49.0) isPanning = true;
+    const becamePanning = !isPanning && dx * dx + dy * dy > 49.0;
+    if (becamePanning) {
+      isPanning = true;
+      benchmark.recordAction("pan");
+    }
     if (!isPanning) {
       focusAtPoint(world);
       return;
@@ -391,6 +424,7 @@ async function main() {
 
     if (!isPanning) {
       interaction.selectedNodeId = hit?.id ?? null;
+      if (interaction.selectedNodeId) benchmark.recordSelection(interaction.selectedNodeId);
       interaction.clickImpulse = clamp(interaction.clickImpulse + 1.0 + Math.min(1.4, Math.hypot(interaction.cursorVx, interaction.cursorVy) * 0.12), 0.0, 2.6);
       interaction.clickAge = 0.0;
     }
@@ -419,6 +453,7 @@ async function main() {
 
   const onWheel = (event) => {
     event.preventDefault();
+    benchmark.recordAction("zoom");
     const rect = canvas.getBoundingClientRect();
     const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top };
     const anchor = renderer.screenToWorld(screen);
@@ -521,6 +556,7 @@ async function main() {
       layout,
       debugState,
       explainability,
+      benchmark: benchmark.getState(),
       interactionField: interaction
     });
 

@@ -93,8 +93,8 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
     role: "answer",
     band: "answer",
     clusterId: "answer",
-    maxWidth: 4.1,
-    lineHeight: 0.26,
+    maxWidth: 4.5,
+    lineHeight: 0.30,
     paddingX: 0.20,
     paddingY: 0.16,
     confidence: 0.93,
@@ -108,8 +108,8 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
     role: "answer",
     band: "answer",
     clusterId: "answer",
-    maxWidth: 4.0,
-    lineHeight: 0.23,
+    maxWidth: 4.4,
+    lineHeight: 0.26,
     paddingX: 0.18,
     paddingY: 0.15,
     confidence: 0.88,
@@ -123,8 +123,8 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
     role: "answer",
     band: "answer",
     clusterId: "answer",
-    maxWidth: 3.6,
-    lineHeight: 0.23,
+    maxWidth: 3.8,
+    lineHeight: 0.25,
     paddingX: 0.18,
     paddingY: 0.14,
     confidence: 0.74,
@@ -148,8 +148,8 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
       role: "evidence",
       band: "evidence",
       clusterId: "evidence",
-      maxWidth: 3.2,
-      lineHeight: 0.21,
+      maxWidth: 3.5,
+      lineHeight: 0.23,
       paddingX: 0.16,
       paddingY: 0.13,
       confidence,
@@ -171,8 +171,8 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
       role: "contradiction",
       band: "contradiction",
       clusterId: "contradiction",
-      maxWidth: 2.5,
-      lineHeight: 0.20,
+      maxWidth: 2.8,
+      lineHeight: 0.22,
       paddingX: 0.16,
       paddingY: 0.14,
       confidence,
@@ -246,8 +246,6 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
     ["token-co-visible", "co-visible", 0.95],
     ["token-uncertainty", "uncertainty", 0.40],
     ["token-readable", "readable", 0.90],
-    ["token-constraint", "constraint", 0.84],
-    ["token-overlap", "overlap", 0.52],
     ["token-focus", "focus field", 0.72],
     ["token-loss", "loss graph", 0.88],
     ["token-bridge", "host bridge", 0.64]
@@ -349,22 +347,28 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
       ],
       tasks: [
         {
-          id: "trace-support",
+          id: "claim-support",
           title: "Trace support for the claim",
           prompt: "Can you follow one support chain from the main claim through evidence, figure, and citation without losing context?",
-          nodeIds: ["answer-hypothesis", "evidence-anchor", "figure-retrieval-map", "citation-a"]
+          nodeIds: ["answer-hypothesis", "evidence-anchor", "figure-retrieval-map", "citation-a"],
+          successNodeIds: ["answer-hypothesis", "evidence-anchor", "citation-a"],
+          successMode: "all"
         },
         {
-          id: "find-risk",
+          id: "weak-region",
           title: "Find the weakest region",
           prompt: "Which part of the workspace looks least stable, and can you inspect it without the answer collapsing away?",
-          nodeIds: ["answer-risk", "contradiction-ui", "figure-uncertainty-ridge", "citation-c"]
+          nodeIds: ["answer-risk", "contradiction-ui", "figure-uncertainty-ridge", "citation-c"],
+          successNodeIds: ["contradiction-ui", "figure-uncertainty-ridge", "citation-c"],
+          successMode: "all"
         },
         {
-          id: "explain-layout",
+          id: "layout-explain",
           title: "Explain why this node is here",
           prompt: "Select the debug evidence chain and check whether the inspector makes the solver legible instead of magical.",
-          nodeIds: ["answer-system", "evidence-debug", "token-loss", "citation-d"]
+          nodeIds: ["answer-system", "evidence-debug", "token-loss", "citation-d"],
+          successNodeIds: ["answer-system", "evidence-debug", "citation-d"],
+          successMode: "all"
         }
       ]
     },

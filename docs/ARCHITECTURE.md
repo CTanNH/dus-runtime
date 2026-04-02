@@ -191,6 +191,21 @@ Why this wedge:
 - figures should be first-class nodes
 - a plain card stack tends to flatten the semantics
 
+## Benchmark Harness
+
+`src/core/benchmark.js`
+
+The benchmark harness sits above the runtime and below the demo chrome.
+
+Its purpose is to turn demo claims into measurable runs:
+
+- start a named task
+- track focus, selection, pan, zoom, fit, and replay counts
+- record elapsed time until completion
+- persist comparable results across demo lanes for shared task ids
+
+This matters because DUS cannot become infrastructure on novelty alone. It needs a path to proving advantage against a rigid control surface.
+
 ## Explainability
 
 DUS only becomes viable if it can explain itself.

@@ -68,6 +68,7 @@ DUS tries to make those properties first-class instead of bolting them on after 
 ```text
 src/
   core/
+    benchmark.js      task benchmark harness + cross-demo result summaries
     contracts.js      scene contract normalization + diagnostics
     fixtures.js       deterministic headless fixture scene
     runtime.js        headless runtime API
@@ -116,6 +117,13 @@ The runtime consumes scenes made of:
 
 and produces solved poses plus explainability data.
 
+Task-oriented scenes can also expose benchmark runs through scene metadata. The runtime demos now use that layer to:
+
+- start named task runs
+- time completion against explicit node targets
+- record interaction counts such as focus, selection, pan, zoom, and fit
+- compare `baseline` and `knowledge` runs for shared task ids
+
 The explainability surface is now a first-class runtime export rather than only an overlay concern. It reports:
 
 - scene-level convergence and instability summaries
@@ -148,6 +156,8 @@ DUS now ships three official demo lanes:
    The control scene. It keeps the same content pinned into a deterministic stack so DUS can be compared against a more conventional reading surface.
 3. `knowledge workspace`
    The task scene. It is narrower and more explicit, meant to answer: “what problem does this runtime solve for AI-native interfaces?”
+
+`baseline` and `knowledge workspace` now share comparable benchmark task ids so the repo can move toward proof-of-advantage instead of only side-by-side screenshots.
 
 Both scenes can be inspected in three view presets:
 

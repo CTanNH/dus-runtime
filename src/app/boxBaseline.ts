@@ -44,22 +44,28 @@ export async function buildBoxBaselineScene(assetProvider) {
       ],
       tasks: [
         {
-          id: "compare-claim",
+          id: "claim-support",
           title: "Compare the claim region",
           prompt: "Inspect the claim, support, and contradiction together here, then switch to knowledge workspace and compare how much more locally negotiable the same content becomes.",
-          nodeIds: ["answer-hypothesis", "evidence-anchor", "contradiction-ui"]
+          nodeIds: ["answer-hypothesis", "evidence-anchor", "contradiction-ui", "citation-a"],
+          successNodeIds: ["answer-hypothesis", "evidence-anchor", "citation-a"],
+          successMode: "all"
         },
         {
-          id: "inspect-figure-rail",
+          id: "weak-region",
           title: "Inspect the fixed figure rail",
           prompt: "Look at how the figure and citation stay obediently boxed. This is the control case DUS is trying to surpass, not dismiss.",
-          nodeIds: ["figure-uncertainty-ridge", "figure-citation-lattice", "citation-b"]
+          nodeIds: ["figure-uncertainty-ridge", "figure-citation-lattice", "citation-c", "contradiction-ui"],
+          successNodeIds: ["contradiction-ui", "figure-uncertainty-ridge", "citation-c"],
+          successMode: "all"
         },
         {
-          id: "see-unsolved-tension",
+          id: "layout-explain",
           title: "See residual tension",
           prompt: "Select the explanation chain and watch the debug losses. In the control scene, the layout stays fixed even when relation tension remains unresolved.",
-          nodeIds: ["answer-system", "evidence-debug", "contradiction-adoption", "citation-d"]
+          nodeIds: ["answer-system", "evidence-debug", "contradiction-adoption", "citation-d"],
+          successNodeIds: ["answer-system", "evidence-debug", "citation-d"],
+          successMode: "all"
         }
       ]
     },

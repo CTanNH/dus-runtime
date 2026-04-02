@@ -31,6 +31,7 @@ export function createDomHostBridge(options) {
   const guideBody = document.createElement("div");
   const guideList = document.createElement("div");
   const taskList = document.createElement("div");
+  const benchmarkBox = document.createElement("div");
   const guideActions = document.createElement("div");
 
   setStyle(root, {
@@ -128,6 +129,16 @@ export function createDomHostBridge(options) {
     gap: "8px"
   });
 
+  setStyle(benchmarkBox, {
+    padding: "10px 12px",
+    borderRadius: "14px",
+    border: "1px solid rgba(120,150,204,0.18)",
+    background: "rgba(8,12,22,0.72)",
+    font: "12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace",
+    whiteSpace: "pre-wrap",
+    color: "#c8d8f1"
+  });
+
   const buttons = {
     benchmark: createButton("Benchmark", () => options.actions.switchDemo("field")),
     baseline: createButton("Baseline", () => options.actions.switchDemo("baseline")),
@@ -155,7 +166,7 @@ export function createDomHostBridge(options) {
     buttons.pause,
     buttons.replay
   );
-  guide.append(guideTitle, guideBody, taskList, guideList, guideActions);
+  guide.append(guideTitle, guideBody, taskList, benchmarkBox, guideList, guideActions);
   root.append(controls, inspector, callout, guide);
   document.body.append(root);
 
@@ -180,6 +191,7 @@ export function createDomHostBridge(options) {
       const selectedExplainability = selectionId
         ? viewModel.explainability?.nodes?.find((node) => node.id === selectionId)
         : null;
+      const benchmarkState = viewModel.benchmark ?? { tasks: [], activeRun: null, recentResults: [] };
       const totals = viewModel.debugState.totals ?? {};
       const unstableSummary = (viewModel.explainability?.scene?.topUnstableNodes ?? [])
         .slice(0, 3)
@@ -250,7 +262,8 @@ export function createDomHostBridge(options) {
 
         taskList.replaceChildren();
         for (const task of tasks) {
-          const button = createButton(task.title, () => options.actions.focusNodes(task.nodeIds));
+          const button = createButton(task.title, () => options.actions.runTask(task.id, task.nodeIds));
+          button.dataset.taskId = task.id;
           button.style.justifyContent = "flex-start";
           button.style.textAlign = "left";
           button.style.width = "100%";
@@ -278,6 +291,39 @@ export function createDomHostBridge(options) {
           createButton("Fit all", () => options.actions.fitCamera())
         );
       }
+
+      const taskStateById = new Map((benchmarkState.tasks ?? []).map((task) => [task.id, task]));
+      for (const button of taskList.children) {
+        const state = taskStateById.get(button.dataset.taskId);
+        if (!state) continue;
+        button.style.opacity = state.status === "active" ? "1" : state.lastRun?.completed ? "0.88" : "0.76";
+        button.style.borderColor = state.status === "active"
+          ? "rgba(151,196,255,0.46)"
+          : state.lastRun?.completed
+            ? "rgba(106,196,162,0.34)"
+            : "rgba(140,170,220,0.22)";
+      }
+
+      const activeRun = benchmarkState.activeRun;
+      benchmarkBox.textContent = activeRun
+        ? [
+            "benchmark",
+            `active    ${activeRun.title}`,
+            `progress  ${activeRun.progress.completed}/${activeRun.progress.total}`,
+            `elapsed   ${(activeRun.elapsedMs / 1000).toFixed(2)}s`,
+            `actions   sel ${activeRun.actionCounts.select} · focus ${activeRun.actionCounts.focus} · pan ${activeRun.actionCounts.pan} · zoom ${activeRun.actionCounts.zoom}`
+          ].join("\n")
+        : [
+            "benchmark",
+            "active    none",
+            benchmarkState.recentResults?.[0]
+              ? `last      ${benchmarkState.recentResults[0].taskId} · ${benchmarkState.recentResults[0].demoId} · ${(benchmarkState.recentResults[0].elapsedMs / 1000).toFixed(2)}s`
+              : "last      none",
+            ...((benchmarkState.tasks ?? [])
+              .filter((task) => task.comparison)
+              .slice(0, 2)
+              .map((task) => `compare   ${task.id} vs ${task.comparison.demoId} · ${(task.comparison.elapsedMs / 1000).toFixed(2)}s`))
+          ].filter(Boolean).join("\n");
 
       if (!selected) {
         callout.style.display = "none";

@@ -64,30 +64,34 @@ fn inverse_rho3(rho2: f32) -> f32 {
   return inv_rho * inv_rho * inv_rho;
 }
 
+fn median3(value: vec3<f32>) -> f32 {
+  return max(min(value.x, value.y), min(max(value.x, value.y), value.z));
+}
+
 fn field_pullback(world_p: vec2<f32>, confidence: f32, stiffness: f32) -> vec2<f32> {
   let cursor_delta = world_p - U.cursor.xy;
-  let cursor_r2 = dot(cursor_delta, cursor_delta) + 0.060;
-  let gravity = (0.012 + 0.080 * U.interaction.x)
-    * mix(1.5, 0.22, stiffness)
+  let cursor_r2 = dot(cursor_delta, cursor_delta) + 0.120;
+  let gravity = (0.004 + 0.026 * U.interaction.x)
+    * mix(0.90, 0.14, stiffness)
     * cursor_delta
     * inverse_rho3(cursor_r2);
 
   let velocity = U.cursor.zw;
-  let velocity2 = dot(velocity, velocity) + 0.040;
-  let shear = mix(0.74, 0.12, stiffness)
+  let velocity2 = dot(velocity, velocity) + 0.080;
+  let shear = mix(0.22, 0.05, stiffness)
     * dot(velocity, cursor_delta)
     * velocity
-    / (velocity2 * cursor_r2 + 0.050);
+    / (velocity2 * cursor_r2 + 0.120);
 
-  let click_push = 0.018
+  let click_push = 0.008
     * U.interaction.y
-    * exp(-1.7 * U.interaction.z)
-    * mix(1.4, 0.26, stiffness)
+    * exp(-2.2 * U.interaction.z)
+    * mix(0.80, 0.16, stiffness)
     * safe_normalize(cursor_delta)
-    / (0.12 + cursor_r2);
+    / (0.22 + cursor_r2);
 
   let flow = gravity + shear + click_push;
-  let max_len = mix(0.28, 0.06, stiffness) + 0.04 * (1.0 - confidence);
+  let max_len = mix(0.12, 0.035, stiffness) + 0.02 * (1.0 - confidence);
   let len2 = dot(flow, flow);
   if (len2 > max_len * max_len) {
     return flow * (max_len * inverseSqrt(max(len2, 1.0e-8)));
@@ -226,27 +230,40 @@ fn fs_panel(in: PanelOut) -> @location(0) vec4<f32> {
   let confidence = clamp(in.style0.x, 0.0, 1.0);
   let importance = clamp(in.style0.y, 0.0, 1.0);
   let stiffness = clamp(in.style0.z, 0.18, 1.0);
+  let kind_flag = in.style0.w;
   let role = in.style1.x;
   let focus = saturate(in.style1.y);
   let selected = saturate(in.style1.z);
   let heat = saturate(in.style1.w);
   let field_mode = U.render.x > 0.5;
+  let is_text = kind_flag < 0.5;
 
   let half_size = panel_half_size(in.half_size * 2.0, confidence, stiffness, field_mode);
   let corner = panel_corner(in.half_size * 2.0, stiffness, field_mode);
   let pull = select(vec2<f32>(0.0, 0.0), field_pullback(in.world, confidence, stiffness), field_mode);
-  let local = in.local - pull * mix(1.04, 0.18, stiffness);
+  let local = in.local - pull * mix(0.58, 0.12, stiffness);
   let sd = sd_round_box(local, half_size, corner);
   let aa = max(fwidth(sd), select(0.004, 0.010, field_mode));
   let alpha = 1.0 - smoothstep(-aa, aa, sd);
-  if (alpha <= 1.0e-4) {
-    discard;
-  }
-
   let tone = role_tint(role, confidence);
   let border = 1.0 - smoothstep(0.0, aa * 4.0 + 0.006, abs(sd));
   let halo = exp(-10.0 * abs(sd)) * max(focus, selected);
   let heat_mix = saturate(heat * U.render.y);
+
+  if (!field_mode && is_text) {
+    let outline_alpha = border * (0.015 + 0.16 * max(focus, selected) + 0.06 * heat_mix);
+    let ambient_alpha = alpha * (0.01 + 0.02 * importance);
+    let text_shell_alpha = max(outline_alpha, ambient_alpha) + halo * 0.06;
+    if (text_shell_alpha <= 1.0e-4) {
+      discard;
+    }
+    let shell_color = mix(vec3<f32>(0.08, 0.10, 0.14), tone, 0.12 + 0.18 * max(focus, selected));
+    return vec4<f32>(shell_color, text_shell_alpha);
+  }
+
+  if (alpha <= 1.0e-4) {
+    discard;
+  }
 
   if (!field_mode) {
     var fill = mix(vec3<f32>(0.10, 0.12, 0.17), vec3<f32>(0.92, 0.95, 0.99), 0.84);
@@ -271,6 +288,12 @@ fn fs_panel(in: PanelOut) -> @location(0) vec4<f32> {
   var fluid = mix(vec3<f32>(0.15, 0.17, 0.22), vec3<f32>(0.20, 0.22, 0.28) + 0.50 * signal, 0.84);
   fluid = fluid + 0.16 * diffuse * tone + 0.76 * specular + 0.12 * rim;
   fluid = mix(fluid, warm, heat_mix * 0.34);
+  if (is_text) {
+    let text_shell = mix(vec3<f32>(0.07, 0.09, 0.13), tone, 0.20 + 0.18 * confidence);
+    let text_alpha = alpha * (0.08 + 0.08 * importance + 0.16 * max(focus, selected));
+    let text_color = text_shell + halo * 0.10 * tone + border * 0.03;
+    return vec4<f32>(text_color, text_alpha);
+  }
   let color = fluid + halo * 0.16 * tone + border * 0.05;
   return vec4<f32>(color, alpha);
 }
@@ -295,10 +318,11 @@ fn fs_text(in: ContentOut) -> @location(0) vec4<f32> {
   let selected = saturate(in.style1.x);
   let focus = saturate(in.style1.y);
   let heat = saturate(in.style1.z);
+  let distance_range = max(in.style1.w, 1.0);
   let field_mode = U.render.x > 0.5;
 
   let pull = select(vec2<f32>(0.0, 0.0), field_pullback(in.world, confidence, stiffness), field_mode);
-  let local = in.local - pull * mix(0.72, 0.10, stiffness);
+  let local = in.local - pull * mix(0.32, 0.08, stiffness);
   let local_uv = vec2<f32>(
     local.x / max(in.half_size.x * 2.0, 1.0e-5) + 0.5,
     0.5 - local.y / max(in.half_size.y * 2.0, 1.0e-5)
@@ -309,11 +333,12 @@ fn fs_text(in: ContentOut) -> @location(0) vec4<f32> {
 
   let atlas_uv = in.uv_rect.xy + local_uv * (in.uv_rect.zw - in.uv_rect.xy);
   let texel = textureSampleLevel(media_texture, media_sampler, atlas_uv, 0.0);
-  let msd = texel.rgb;
-  let signed_distance = max(min(msd.r, msd.g), min(max(msd.r, msd.g), msd.b)) - 0.5;
-  let glyph_sd = -signed_distance * min(in.half_size.x * 2.0, in.half_size.y * 2.0);
-  let aa = max(fwidth(glyph_sd), mix(0.010, 0.004, confidence));
-  let alpha = (1.0 - smoothstep(-aa, aa, glyph_sd)) * clamp(texel.a, 0.0, 1.0);
+  let signed_distance = median3(texel.rgb) - 0.5;
+  let atlas_size = vec2<f32>(textureDimensions(media_texture, 0));
+  let unit_range = vec2<f32>(distance_range, distance_range) / atlas_size;
+  let screen_tex = max(fwidth(atlas_uv), vec2<f32>(1.0e-6, 1.0e-6));
+  let screen_px_range = max(0.5 * dot(unit_range, vec2<f32>(1.0, 1.0) / screen_tex), 1.0);
+  let alpha = clamp(screen_px_range * signed_distance + 0.5, 0.0, 1.0) * clamp(texel.a, 0.0, 1.0);
   if (alpha <= 1.0e-4) {
     discard;
   }
@@ -323,8 +348,8 @@ fn fs_text(in: ContentOut) -> @location(0) vec4<f32> {
   let cold = vec3<f32>(0.20, 0.34, 0.62);
   let luminous = mix(vec3<f32>(1.0, 0.80, 0.76), vec3<f32>(0.84, 0.93, 1.0), confidence);
   var text_color = select(mix(warm, cold, confidence), luminous, field_mode);
-  text_color = mix(text_color, vec3<f32>(0.98, 0.52, 0.32), heat * U.render.y * 0.25);
-  text_color = text_color + tone * select(0.04, 0.12, field_mode) + max(focus, selected) * 0.10 * vec3<f32>(1.0, 1.0, 1.0);
+  text_color = mix(text_color, vec3<f32>(0.98, 0.52, 0.32), heat * U.render.y * 0.22);
+  text_color = text_color + tone * select(0.03, 0.08, field_mode) + max(focus, selected) * 0.08 * vec3<f32>(1.0, 1.0, 1.0);
   return vec4<f32>(text_color, alpha);
 }
 

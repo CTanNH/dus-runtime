@@ -81,6 +81,28 @@ Exit criteria:
 
 - layout changes feel inspectable, not magical
 
+Progress so far:
+
+- explainability is now exported from the runtime as data, not only painted in the overlay
+- per-node narratives and scene-level instability summaries are available to adapters and tests
+
+## Milestone 3.5: Prove Advantage Against the Control
+
+Target:
+
+- benchmark the same semantic tasks across `box baseline` and `knowledge workspace`
+
+Need:
+
+- shared task ids between control and solver-driven scenes
+- timed task runs
+- comparable interaction counts
+- persistent result summaries
+
+Exit criteria:
+
+- DUS can show at least one measurable advantage over the rigid control scene
+
 ## Milestone 4: Scale the Solve
 
 Target:
@@ -150,9 +172,8 @@ The repo is ready for broader public attention when all of these are true:
 
 ## Immediate Next Work
 
-- make the solver/debug layers easier to inspect
 - harden the scene/constraint schema beyond the current normalization layer
-- export explainability data as a real runtime surface, not only an overlay
-- benchmark baseline vs knowledge workspace on one explicit task
+- deepen the benchmark harness from simple run tracking into a repeatable evaluation workflow
+- make the solver/debug layers easier to inspect
 - refine the knowledge workspace into a real task demo
 - decide what belongs in core vs adapter vs app
