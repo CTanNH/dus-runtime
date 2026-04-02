@@ -208,6 +208,13 @@ The knowledge workspace can also load an alternate packet at runtime:
 http://127.0.0.1:8000/?demo=knowledge&packet=/absolute-or-relative-packet.json
 ```
 
+Validate a packet offline before opening it in the browser:
+
+```powershell
+cd D:\Projects\DUS
+npm run validate:packet -- .\src\app\knowledge-packet.json
+```
+
 If `serve` is unavailable:
 
 ```powershell
