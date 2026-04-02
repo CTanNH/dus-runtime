@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { normalizeSceneContract } from "../src/core/contracts.js";
 import { createBenchmarkHarness } from "../src/core/benchmark.js";
 import { createFixtureScene } from "../src/core/fixtures.js";
+import { buildKnowledgeSceneFromDocument } from "../src/core/ingest.js";
 import { buildScaffold } from "../src/core/scaffold.js";
 import { createDusRuntime } from "../src/core/runtime.js";
 
@@ -70,6 +71,55 @@ await run("scene contract drops dangling relations and normalizes viewport", asy
   assert.equal(result.scene.relations.length, 0);
   assert.ok(result.diagnostics.warnings.length >= 2);
   assert.deepEqual(result.scene.viewport, { minX: -6.8, maxX: 6.8, minY: -4.4, maxY: 4.4 });
+});
+
+await run("knowledge ingestion builds a contract-clean scene from semantic document input", async () => {
+  const assetProvider = {
+    createTextRun(id, text, options = {}) {
+      const lineHeight = options.lineHeight ?? 0.24;
+      const width = Math.max((options.maxWidth ?? 2.0) * 0.82, text.length * 0.06);
+      return {
+        id,
+        text,
+        glyphs: [],
+        width,
+        height: lineHeight,
+        paddedWidth: width + (options.paddingX ?? 0.12) * 2.0,
+        paddedHeight: lineHeight + (options.paddingY ?? 0.1) * 2.0,
+        distanceRange: 4.0
+      };
+    },
+    getImage(imageId) {
+      return {
+        id: imageId,
+        aspect: 2.0,
+        uvRect: { u0: 0.0, v0: 0.0, u1: 1.0, v1: 1.0 }
+      };
+    }
+  };
+
+  const scene = buildKnowledgeSceneFromDocument({
+    metadata: { title: "Ingested Scene" },
+    text: [
+      { id: "claim", text: "Claim", role: "answer", confidence: 0.92 },
+      { id: "evidence", text: "Evidence", role: "evidence", confidence: 0.82 }
+    ],
+    images: [
+      { id: "figure", imageId: "retrieval-map", role: "figure", confidence: 0.74 }
+    ],
+    relations: [
+      { from: "evidence", to: "claim", type: "supports", weight: 0.8 },
+      { from: "figure", to: "evidence", type: "supports", weight: 0.7 }
+    ]
+  }, assetProvider);
+
+  const normalized = normalizeSceneContract(scene);
+  assert.equal(normalized.diagnostics.errors.length, 0);
+  assert.equal(normalized.diagnostics.warnings.length, 0);
+  assert.equal(scene.nodes.length, 3);
+  assert.equal(scene.nodes[0].rendererPayload.type, "text");
+  assert.equal(scene.nodes[2].rendererPayload.type, "image");
+  assert.equal(scene.relations.length, 2);
 });
 
 await run("scaffold output is deterministic for a fixed seed", async () => {
@@ -193,4 +243,4 @@ await run("benchmark harness records comparable task runs", async () => {
   assert.ok(baselineState.tasks[0].comparison.elapsedMs > 0);
 });
 
-console.log("Passed 6 core runtime checks.");
+console.log("Passed 7 core runtime checks.");
