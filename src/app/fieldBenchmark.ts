@@ -298,7 +298,38 @@ export async function buildFieldBenchmarkScene(assetProvider) {
       title: "Field Benchmark",
       subtitle: "Continuous surface benchmark",
       description: "A denser scene tuned to show non-box flow, confidence gradients, and continuous interaction before explanation.",
-      intent: "hero"
+      intent: "hero",
+      watchFor: [
+        "Dense nodes should separate into clusters without a single CSS layout rule.",
+        "Cold, high-confidence regions should feel structurally harder than warm, low-confidence regions.",
+        "Cursor interaction should pull local neighborhoods without collapsing the whole surface into one blob."
+      ],
+      guideSteps: [
+        {
+          id: "retrieval",
+          label: "Retrieval cluster",
+          nodeId: "cluster-retrieval",
+          description: "A denser evidence basin. It should hold together visually while individual nodes still dodge and settle."
+        },
+        {
+          id: "uncertainty",
+          label: "Hot uncertainty zone",
+          nodeId: "cluster-uncertainty",
+          description: "This cluster is intentionally low-confidence. It should feel softer, warmer, and easier to perturb."
+        },
+        {
+          id: "surface",
+          label: "Surface adapter seam",
+          nodeId: "cluster-interface",
+          description: "This area names the runtime concepts directly: surface adapter, view transform, host bridge, field mode."
+        },
+        {
+          id: "runtime",
+          label: "Runtime core",
+          nodeId: "cluster-runtime",
+          description: "The lower band names the non-visual machinery: scaffold, losses, projection, relation map, replay."
+        }
+      ]
     },
     nodes,
     relations,

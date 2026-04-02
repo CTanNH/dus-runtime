@@ -26,6 +26,11 @@ export function createDomHostBridge(options) {
   const controls = document.createElement("div");
   const inspector = document.createElement("pre");
   const callout = document.createElement("div");
+  const guide = document.createElement("div");
+  const guideTitle = document.createElement("div");
+  const guideBody = document.createElement("div");
+  const guideList = document.createElement("div");
+  const guideActions = document.createElement("div");
 
   setStyle(root, {
     position: "fixed",
@@ -74,6 +79,48 @@ export function createDomHostBridge(options) {
     whiteSpace: "pre-wrap"
   });
 
+  setStyle(guide, {
+    position: "absolute",
+    top: "14px",
+    right: "14px",
+    width: "330px",
+    padding: "12px 14px",
+    background: "rgba(4,8,16,0.78)",
+    border: "1px solid rgba(120,150,204,0.20)",
+    borderRadius: "16px",
+    backdropFilter: "blur(14px)",
+    pointerEvents: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    color: "#dbe8ff"
+  });
+
+  setStyle(guideTitle, {
+    font: "600 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace",
+    color: "#f2f7ff",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em"
+  });
+
+  setStyle(guideBody, {
+    font: "12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace",
+    color: "#b8c8e4",
+    whiteSpace: "pre-wrap"
+  });
+
+  setStyle(guideList, {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px"
+  });
+
+  setStyle(guideActions, {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "6px"
+  });
+
   const buttons = {
     benchmark: createButton("Benchmark", () => options.actions.switchDemo("field")),
     workspace: createButton("Workspace", () => options.actions.switchDemo("knowledge")),
@@ -99,8 +146,11 @@ export function createDomHostBridge(options) {
     buttons.pause,
     buttons.replay
   );
-  root.append(controls, inspector, callout);
+  guide.append(guideTitle, guideBody, guideList, guideActions);
+  root.append(controls, inspector, callout, guide);
   document.body.append(root);
+
+  let guideSignature = "";
 
   return {
     mount(viewModel) {
@@ -109,6 +159,7 @@ export function createDomHostBridge(options) {
 
     update(viewModel) {
       const demo = viewModel.scene.metadata ?? {};
+      const guideSteps = demo.guideSteps ?? [];
       const selectionId = viewModel.interactionField.selectedNodeId;
       const selected = selectionId
         ? viewModel.layout.nodePoses.find((pose) => pose.id === selectionId)
@@ -159,6 +210,41 @@ export function createDomHostBridge(options) {
       buttons.targets.style.opacity = options.getShowTargets() ? "1" : "0.65";
       buttons.heat.style.opacity = options.getShowHeat() ? "1" : "0.65";
       buttons.pause.style.opacity = options.getPaused() ? "1" : "0.65";
+
+      const nextGuideSignature = JSON.stringify({
+        demoId: demo.demoId ?? "scene",
+        selectionId,
+        steps: guideSteps.map((step) => ({ id: step.id, label: step.label, nodeId: step.nodeId }))
+      });
+
+      if (nextGuideSignature !== guideSignature) {
+        guideSignature = nextGuideSignature;
+        guideTitle.textContent = `${demo.title ?? "Scene"} guide`;
+        guideBody.textContent = [
+          demo.description ?? "",
+          "",
+          "watch for",
+          ...(demo.watchFor ?? []).map((item) => `- ${item}`)
+        ].filter(Boolean).join("\n");
+
+        guideList.replaceChildren();
+        for (const step of guideSteps) {
+          const button = createButton(step.label, () => options.actions.focusNode(step.nodeId));
+          button.style.justifyContent = "flex-start";
+          button.style.textAlign = "left";
+          button.style.width = "100%";
+          button.style.borderRadius = "14px";
+          button.style.padding = "8px 10px";
+          button.textContent = `${step.label} — ${step.description}`;
+          button.style.opacity = selectionId === step.nodeId ? "1" : "0.76";
+          guideList.append(button);
+        }
+
+        guideActions.replaceChildren(
+          createButton("Replay scene", () => options.actions.replay()),
+          createButton("Fit all", () => options.actions.fitCamera())
+        );
+      }
 
       if (!selected) {
         callout.style.display = "none";

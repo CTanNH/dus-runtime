@@ -179,6 +179,26 @@ async function main() {
     hasManualCamera = false;
   }
 
+  function focusNode(nodeId) {
+    const pose = runtime.getLayout().nodePoses.find((entry) => entry.id === nodeId);
+    if (!pose) return;
+
+    interaction.selectedNodeId = nodeId;
+    interaction.focusNodeId = nodeId;
+    interaction.queryPulse = Math.max(interaction.queryPulse, 0.8);
+
+    const spanX = Math.max(pose.width * 2.8, 2.8);
+    const spanY = Math.max(pose.height * 3.2, 1.9);
+    camera = fitCameraToBounds({
+      minX: pose.x - spanX,
+      maxX: pose.x + spanX,
+      minY: pose.y - spanY,
+      maxY: pose.y + spanY
+    }, Math.min(1.02, currentDemo.fitScale + 0.08));
+    renderer.setCamera(camera);
+    hasManualCamera = false;
+  }
+
   function switchDemo(nextDemoId) {
     if (nextDemoId === currentDemo.id) return;
     const url = new URL(window.location.href);
@@ -202,6 +222,9 @@ async function main() {
     actions: {
       switchDemo(nextDemoId) {
         switchDemo(nextDemoId);
+      },
+      focusNode(nodeId) {
+        focusNode(nodeId);
       },
       setViewPreset(preset) {
         applyViewPreset(preset);

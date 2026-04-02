@@ -309,7 +309,44 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
       title: "Knowledge Workspace",
       subtitle: "Task demo for AI-native interfaces",
       description: "A narrower workspace that tries to prove usefulness: answers, evidence, contradictions, figures, and citations share one solvable reading surface.",
-      intent: "task"
+      intent: "task",
+      watchFor: [
+        "The hypothesis should remain readable while evidence and contradiction nodes negotiate around it.",
+        "Low-confidence contradiction fragments should feel warmer and less rigid than the cold, high-confidence answer blocks.",
+        "The same solved layout should stay coherent in plain, field, and debug views."
+      ],
+      guideSteps: [
+        {
+          id: "hypothesis",
+          label: "Main claim",
+          nodeId: "answer-hypothesis",
+          description: "Start here. This is the statement the workspace is trying to stabilize without collapsing surrounding evidence."
+        },
+        {
+          id: "support",
+          label: "Support chain",
+          nodeId: "evidence-anchor",
+          description: "These evidence nodes should settle near the answer, preserving proximity without becoming a fixed card stack."
+        },
+        {
+          id: "risk",
+          label: "Low-confidence risk",
+          nodeId: "contradiction-ui",
+          description: "This contradiction node is intentionally weaker and hotter. It should stay legible without dominating the answer."
+        },
+        {
+          id: "figure",
+          label: "Figure anchor",
+          nodeId: "figure-uncertainty-ridge",
+          description: "Images behave as first-class evidence. They are anchored by relation, not by a side panel."
+        },
+        {
+          id: "citation",
+          label: "Citation band",
+          nodeId: "citation-b",
+          description: "Citations should remain nearby and ordered, but they are still part of the same solved surface."
+        }
+      ]
     },
     nodes,
     relations,
