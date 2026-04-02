@@ -7,6 +7,7 @@ import { createWebGpuRendererAdapter } from "./adapters/webgpu/renderer.js";
 import { createDomHostBridge } from "./adapters/dom/hostBridge.js";
 import { buildKnowledgeWorkspaceScene } from "./app/knowledgeWorkspace.js";
 import { buildFieldBenchmarkScene } from "./app/fieldBenchmark.js";
+import { buildBoxBaselineScene } from "./app/boxBaseline.js";
 
 const DEMO_SPECS = {
   field: {
@@ -25,6 +26,24 @@ const DEMO_SPECS = {
       learningRate: 0.078,
       hardPadding: 0.06,
       textImagePadding: 0.12
+    }
+  },
+  baseline: {
+    id: "baseline",
+    buildScene: buildBoxBaselineScene,
+    defaultView: "plain",
+    seed: 11,
+    iterationsPerFrame: 1,
+    initialSolveIterations: 1,
+    fitScale: 0.92,
+    solverParams: {
+      targetWeight: 4.2,
+      overlapWeight: 2.6,
+      orderWeight: 1.2,
+      relationWeight: 1.0,
+      learningRate: 0.085,
+      hardPadding: 0.08,
+      textImagePadding: 0.14
     }
   },
   knowledge: {
@@ -439,6 +458,7 @@ async function main() {
       paused = !paused;
     }
     if (event.key.toLowerCase() === "b") switchDemo("field");
+    if (event.key.toLowerCase() === "c") switchDemo("baseline");
     if (event.key.toLowerCase() === "k") switchDemo("knowledge");
     if (event.key.toLowerCase() === "f") fitCameraToLayout();
     if (event.key.toLowerCase() === "r") replay();

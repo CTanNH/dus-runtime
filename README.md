@@ -9,10 +9,12 @@ DUS is not a new button toolkit and it is not a liquid shader toy. The core idea
 - Interaction perturbs a field that the solver and renderer both understand.
 - Rendering is adapter-driven. A fluid field is one surface, not the whole product.
 
-The current repo is an experimental runtime plus two official demos:
+The current repo is an experimental runtime plus three official demos:
 
 - `field benchmark`
   a denser surface meant to show continuity, confidence gradients, and non-box motion at a glance
+- `box baseline`
+  a rigid control scene using the same content, pinned into a deterministic reading stack
 - `knowledge workspace`
   a narrower task demo where answers, evidence, contradictions, citations, tokens, and figures co-exist inside one navigable surface
 
@@ -111,11 +113,13 @@ and produces solved poses plus explainability data.
 
 ## Demo
 
-DUS now ships two official demo lanes:
+DUS now ships three official demo lanes:
 
 1. `field benchmark`
    The first-impression / hero scene. It is denser, tuned for `field` mode, and meant to answer: “what feels different here that box UI usually does not?”
-2. `knowledge workspace`
+2. `box baseline`
+   The control scene. It keeps the same content pinned into a deterministic stack so DUS can be compared against a more conventional reading surface.
+3. `knowledge workspace`
    The task scene. It is narrower and more explicit, meant to answer: “what problem does this runtime solve for AI-native interfaces?”
 
 Both scenes can be inspected in three view presets:
@@ -143,6 +147,7 @@ Official demo URLs:
 
 ```text
 http://127.0.0.1:8000/?demo=field
+http://127.0.0.1:8000/?demo=baseline
 http://127.0.0.1:8000/?demo=knowledge
 ```
 
@@ -166,6 +171,7 @@ npm run serve
 - `2` field
 - `3` debug
 - `b` open field benchmark
+- `c` open box baseline
 - `k` open knowledge workspace
 - `f` fit camera to solved layout
 - `h` toggle overlap heat

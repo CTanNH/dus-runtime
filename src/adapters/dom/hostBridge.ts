@@ -130,6 +130,7 @@ export function createDomHostBridge(options) {
 
   const buttons = {
     benchmark: createButton("Benchmark", () => options.actions.switchDemo("field")),
+    baseline: createButton("Baseline", () => options.actions.switchDemo("baseline")),
     workspace: createButton("Workspace", () => options.actions.switchDemo("knowledge")),
     plain: createButton("Plain", () => options.actions.setViewPreset("plain")),
     field: createButton("Field", () => options.actions.setViewPreset("field")),
@@ -143,6 +144,7 @@ export function createDomHostBridge(options) {
 
   controls.append(
     buttons.benchmark,
+    buttons.baseline,
     buttons.workspace,
     buttons.plain,
     buttons.field,
@@ -188,9 +190,9 @@ export function createDomHostBridge(options) {
         `trace     ${makeSparkline(viewModel.debugState.convergenceTrace ?? [])}`,
         "",
         `shortcuts`,
-        `1 plain · 2 field · 3 debug · b benchmark · k workspace`,
+        `1 plain · 2 field · 3 debug · b benchmark · c baseline · k workspace`,
         `f fit · r replay · space pause`,
-        `benchmark / workspace buttons switch the official demo lane`,
+        `benchmark / baseline / workspace buttons switch the official demo lane`,
         "",
         `active constraints`,
         `${(viewModel.debugState.activeConstraints ?? []).map((constraint) => `${constraint.type}:${constraint.mode}`).join(" · ")}`,
@@ -210,6 +212,7 @@ export function createDomHostBridge(options) {
 
       const demoId = demo.demoId ?? options.getDemoId?.();
       buttons.benchmark.style.opacity = demoId === "field" ? "1" : "0.65";
+      buttons.baseline.style.opacity = demoId === "baseline" ? "1" : "0.65";
       buttons.workspace.style.opacity = demoId === "knowledge" ? "1" : "0.65";
       const preset = options.getViewPreset();
       buttons.plain.style.opacity = preset === "plain" ? "1" : "0.65";
