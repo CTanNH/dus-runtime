@@ -1,15 +1,14 @@
 import { buildScaffold } from "./scaffold.js";
 import { createHybridSolver } from "./solver.js";
 import { cloneScene, poseToRect, rectContainsPoint } from "./utils.js";
+import { formatSceneDiagnostics, normalizeSceneContract } from "./contracts.js";
 
 function normalizeScene(scene) {
-  return cloneScene({
-    nodes: scene.nodes ?? [],
-    relations: scene.relations ?? [],
-    constraints: scene.constraints ?? [],
-    viewport: scene.viewport,
-    interactionField: scene.interactionField
-  });
+  const normalized = normalizeSceneContract(scene);
+  return {
+    scene: cloneScene(normalized.scene),
+    diagnostics: normalized.diagnostics
+  };
 }
 
 function materializeLayout(scene, solverState) {
@@ -51,11 +50,13 @@ function materializeLayout(scene, solverState) {
 export function createDusRuntime(config = {}) {
   const solver = config.solver ?? createHybridSolver(config);
 
-  let scene = normalizeScene({ nodes: [], relations: [], constraints: [] });
+  const initial = normalizeScene({ nodes: [], relations: [], constraints: [] });
+  let scene = initial.scene;
+  let sceneDiagnostics = initial.diagnostics;
   let scaffold = null;
   let solverState = null;
   let layout = { nodePoses: [], visibility: new Map(), debugLosses: [], debugConstraintState: [] };
-  let debugState = { totals: {}, convergenceTrace: [], nodes: [], activeConstraints: [] };
+  let debugState = { totals: {}, convergenceTrace: [], nodes: [], activeConstraints: [], sceneDiagnostics };
   let interactionField = {
     cursorX: 0.0,
     cursorY: 0.0,
@@ -69,7 +70,10 @@ export function createDusRuntime(config = {}) {
 
   function publish() {
     layout = materializeLayout(scene, solverState);
-    debugState = solverState.debugState ?? debugState;
+    debugState = {
+      ...(solverState.debugState ?? debugState),
+      sceneDiagnostics
+    };
     if (hostBridge?.update) {
       hostBridge.update({ scene, layout, debugState, interactionField });
     } else if (hostBridge?.mount) {
@@ -79,7 +83,13 @@ export function createDusRuntime(config = {}) {
 
   return {
     setScene(nextScene) {
-      scene = normalizeScene(nextScene);
+      const normalized = normalizeScene(nextScene);
+      if (normalized.diagnostics.errors.length > 0) {
+        throw new Error(`Invalid DUS scene contract: ${formatSceneDiagnostics(normalized.diagnostics)}`);
+      }
+
+      scene = normalized.scene;
+      sceneDiagnostics = normalized.diagnostics;
       interactionField = {
         ...interactionField,
         ...(scene.interactionField ?? {})
@@ -115,6 +125,10 @@ export function createDusRuntime(config = {}) {
 
     getDebugState() {
       return debugState;
+    },
+
+    getSceneDiagnostics() {
+      return sceneDiagnostics;
     },
 
     hitTest(point) {

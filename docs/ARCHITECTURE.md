@@ -57,7 +57,19 @@ Constraints provide the runtime's operating envelope:
 
 `src/core/runtime.js`
 
-The input scene is normalized and cloned so downstream stages can mutate solver state without mutating user input.
+The input scene is normalized, validated, and cloned so downstream stages can mutate solver state without mutating user input.
+
+That contract layer now lives in `src/core/contracts.js`.
+
+Its current job is pragmatic, not ornamental:
+
+- reject duplicate or missing node ids
+- drop relations that point at unknown nodes
+- clamp or default unstable numeric inputs
+- normalize viewport and interaction-field shape
+- surface warnings/errors through runtime diagnostics
+
+This matters because DUS is trying to become infrastructure. If the scene contract is vague, every adapter and every demo quietly invents its own rules.
 
 ### 2. Scaffold build
 

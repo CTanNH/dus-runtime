@@ -68,6 +68,7 @@ DUS tries to make those properties first-class instead of bolting them on after 
 ```text
 src/
   core/
+    contracts.js      scene contract normalization + diagnostics
     runtime.js        headless runtime API
     scaffold.js       deterministic target/scaffold layout
     solver.js         hybrid loss + projection solver
@@ -97,6 +98,7 @@ The headless runtime is exposed through `createDusRuntime(config)` and returns a
 - `solve(iterations, dt)`
 - `getLayout()`
 - `getDebugState()`
+- `getSceneDiagnostics()`
 - `hitTest(point)`
 - `bindHostBridge(bridge)`
 - `setInteractionField(field)`
@@ -110,6 +112,13 @@ The runtime consumes scenes made of:
 - `interactionField`
 
 and produces solved poses plus explainability data.
+
+Before solving, scenes are normalized through a contract layer:
+
+- duplicate or missing node ids become hard errors
+- dangling relations are dropped with warnings
+- unknown kinds/types fall back to safe defaults
+- viewport and interaction fields are normalized into a stable runtime shape
 
 ## Demo
 
