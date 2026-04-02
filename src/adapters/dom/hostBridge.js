@@ -22,6 +22,7 @@ function createButton(label, onClick) {
 }
 
 export function createDomHostBridge(options) {
+  const UI_SYNC_MS = 120;
   const root = document.createElement("div");
   const controls = document.createElement("div");
   const inspector = document.createElement("pre");
@@ -39,7 +40,8 @@ export function createDomHostBridge(options) {
     inset: "0",
     pointerEvents: "none",
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-    color: "#d8e7ff"
+    color: "#d8e7ff",
+    contain: "layout style paint"
   });
 
   setStyle(controls, {
@@ -70,7 +72,9 @@ export function createDomHostBridge(options) {
 
   setStyle(callout, {
     position: "absolute",
-    transform: "translate(-50%, -100%)",
+    left: "0",
+    top: "0",
+    transform: "translate3d(-9999px, -9999px, 0) translate(-50%, -100%)",
     padding: "8px 10px",
     background: "rgba(10,14,24,0.90)",
     border: "1px solid rgba(138,174,228,0.26)",
@@ -171,6 +175,13 @@ export function createDomHostBridge(options) {
   document.body.append(root);
 
   let guideSignature = "";
+  let inspectorSignature = "";
+  let benchmarkSignature = "";
+  let calloutSignature = "";
+  let lastUiSync = -Infinity;
+  let lastSelectionId = null;
+  let taskButtons = [];
+  let guideButtons = [];
 
   return {
     mount(viewModel) {
@@ -197,39 +208,9 @@ export function createDomHostBridge(options) {
         .slice(0, 3)
         .map((node) => `${node.id}:${node.dominantLoss.key}`)
         .join(" · ");
-
-      inspector.textContent = [
-        `DUS runtime`,
-        `demo      ${demo.title ?? demo.demoId ?? "scene"}`,
-        demo.subtitle ? `intent    ${demo.subtitle}` : null,
-        `view      ${options.getViewPreset()}`,
-        `paused    ${options.getPaused() ? "yes" : "no"}`,
-        `nodes     ${viewModel.layout.nodePoses.length}`,
-        `loss      ${Number(totals.total ?? 0).toFixed(3)}`,
-        `trace     ${makeSparkline(viewModel.debugState.convergenceTrace ?? [])}`,
-        unstableSummary ? `unstable  ${unstableSummary}` : null,
-        "",
-        `shortcuts`,
-        `1 plain · 2 field · 3 debug · b benchmark · c baseline · k workspace`,
-        `f fit · r replay · space pause`,
-        `benchmark / baseline / workspace buttons switch the official demo lane`,
-        "",
-        `active constraints`,
-        `${(viewModel.debugState.activeConstraints ?? []).map((constraint) => `${constraint.type}:${constraint.mode}`).join(" · ")}`,
-        demo.description ? `\n${demo.description}` : null,
-        "",
-        selected && selectedDebug
-          ? [
-              `selected  ${selected.id}`,
-              `role      ${selected.metadata?.role ?? selected.kind}`,
-              `focus     ${selected.focusInfluence.toFixed(2)}`,
-              `motion    ${selected.motionX.toFixed(3)}, ${selected.motionY.toFixed(3)}`,
-              `losses    target ${selectedDebug.losses.target.toFixed(3)} | overlap ${selectedDebug.losses.overlap.toFixed(3)} | relation ${selectedDebug.losses.relation.toFixed(3)} | order ${selectedDebug.losses.order.toFixed(3)} | focus ${selectedDebug.losses.focus.toFixed(3)}`,
-              `constraints ${selectedDebug.activeConstraints.join(", ")}`,
-              selectedExplainability ? `why       ${selectedExplainability.narrative}` : null
-            ].join("\n")
-          : "selected  none"
-      ].join("\n");
+      const now = performance.now();
+      const shouldSyncText = selectionId !== lastSelectionId || now - lastUiSync >= UI_SYNC_MS;
+      lastSelectionId = selectionId;
 
       const demoId = demo.demoId ?? options.getDemoId?.();
       buttons.benchmark.style.opacity = demoId === "field" ? "1" : "0.65";
@@ -245,7 +226,6 @@ export function createDomHostBridge(options) {
 
       const nextGuideSignature = JSON.stringify({
         demoId: demo.demoId ?? "scene",
-        selectionId,
         steps: guideSteps.map((step) => ({ id: step.id, label: step.label, nodeId: step.nodeId })),
         tasks: tasks.map((task) => ({ id: task.id, title: task.title, nodeIds: task.nodeIds }))
       });
@@ -261,6 +241,7 @@ export function createDomHostBridge(options) {
         ].filter(Boolean).join("\n");
 
         taskList.replaceChildren();
+        taskButtons = [];
         for (const task of tasks) {
           const button = createButton(task.title, () => options.actions.runTask(task.id, task.nodeIds));
           button.dataset.taskId = task.id;
@@ -271,19 +252,22 @@ export function createDomHostBridge(options) {
           button.style.padding = "8px 10px";
           button.textContent = `${task.title} — ${task.prompt}`;
           taskList.append(button);
+          taskButtons.push(button);
         }
 
         guideList.replaceChildren();
+        guideButtons = [];
         for (const step of guideSteps) {
           const button = createButton(step.label, () => options.actions.focusNode(step.nodeId));
+          button.dataset.nodeId = step.nodeId;
           button.style.justifyContent = "flex-start";
           button.style.textAlign = "left";
           button.style.width = "100%";
           button.style.borderRadius = "14px";
           button.style.padding = "8px 10px";
           button.textContent = `${step.label} — ${step.description}`;
-          button.style.opacity = selectionId === step.nodeId ? "1" : "0.76";
           guideList.append(button);
+          guideButtons.push(button);
         }
 
         guideActions.replaceChildren(
@@ -293,7 +277,7 @@ export function createDomHostBridge(options) {
       }
 
       const taskStateById = new Map((benchmarkState.tasks ?? []).map((task) => [task.id, task]));
-      for (const button of taskList.children) {
+      for (const button of taskButtons) {
         const state = taskStateById.get(button.dataset.taskId);
         if (!state) continue;
         button.style.opacity = state.status === "active" ? "1" : state.lastRun?.completed ? "0.88" : "0.76";
@@ -304,42 +288,100 @@ export function createDomHostBridge(options) {
             : "rgba(140,170,220,0.22)";
       }
 
-      const activeRun = benchmarkState.activeRun;
-      benchmarkBox.textContent = activeRun
-        ? [
-            "benchmark",
-            `active    ${activeRun.title}`,
-            `progress  ${activeRun.progress.completed}/${activeRun.progress.total}`,
-            `elapsed   ${(activeRun.elapsedMs / 1000).toFixed(2)}s`,
-            `actions   sel ${activeRun.actionCounts.select} · focus ${activeRun.actionCounts.focus} · pan ${activeRun.actionCounts.pan} · zoom ${activeRun.actionCounts.zoom}`
-          ].join("\n")
-        : [
-            "benchmark",
-            "active    none",
-            benchmarkState.recentResults?.[0]
-              ? `last      ${benchmarkState.recentResults[0].taskId} · ${benchmarkState.recentResults[0].demoId} · ${(benchmarkState.recentResults[0].elapsedMs / 1000).toFixed(2)}s`
-              : "last      none",
-            ...((benchmarkState.tasks ?? [])
-              .filter((task) => task.comparison)
-              .slice(0, 2)
-              .map((task) => `compare   ${task.id} vs ${task.comparison.demoId} · ${(task.comparison.elapsedMs / 1000).toFixed(2)}s`))
-          ].filter(Boolean).join("\n");
+      for (const button of guideButtons) {
+        button.style.opacity = button.dataset.nodeId === selectionId ? "1" : "0.76";
+      }
+
+      if (shouldSyncText) {
+        const nextInspector = [
+          `DUS runtime`,
+          `demo      ${demo.title ?? demo.demoId ?? "scene"}`,
+          demo.subtitle ? `intent    ${demo.subtitle}` : null,
+          `view      ${options.getViewPreset()}`,
+          `paused    ${options.getPaused() ? "yes" : "no"}`,
+          `nodes     ${viewModel.layout.nodePoses.length}`,
+          `loss      ${Number(totals.total ?? 0).toFixed(3)}`,
+          `trace     ${makeSparkline(viewModel.debugState.convergenceTrace ?? [])}`,
+          unstableSummary ? `unstable  ${unstableSummary}` : null,
+          "",
+          `shortcuts`,
+          `1 plain · 2 field · 3 debug · b benchmark · c baseline · k workspace`,
+          `f fit · r replay · space pause`,
+          `benchmark / baseline / workspace buttons switch the official demo lane`,
+          "",
+          `active constraints`,
+          `${(viewModel.debugState.activeConstraints ?? []).map((constraint) => `${constraint.type}:${constraint.mode}`).join(" · ")}`,
+          demo.description ? `\n${demo.description}` : null,
+          "",
+          selected && selectedDebug
+            ? [
+                `selected  ${selected.id}`,
+                `role      ${selected.metadata?.role ?? selected.kind}`,
+                `focus     ${selected.focusInfluence.toFixed(2)}`,
+                `motion    ${selected.motionX.toFixed(3)}, ${selected.motionY.toFixed(3)}`,
+                `losses    target ${selectedDebug.losses.target.toFixed(3)} | overlap ${selectedDebug.losses.overlap.toFixed(3)} | relation ${selectedDebug.losses.relation.toFixed(3)} | order ${selectedDebug.losses.order.toFixed(3)} | focus ${selectedDebug.losses.focus.toFixed(3)}`,
+                `constraints ${selectedDebug.activeConstraints.join(", ")}`,
+                selectedExplainability ? `why       ${selectedExplainability.narrative}` : null
+              ].join("\n")
+            : "selected  none"
+        ].join("\n");
+        if (nextInspector !== inspectorSignature) {
+          inspectorSignature = nextInspector;
+          inspector.textContent = nextInspector;
+        }
+
+        const activeRun = benchmarkState.activeRun;
+        const nextBenchmark = activeRun
+          ? [
+              "benchmark",
+              `active    ${activeRun.title}`,
+              `progress  ${activeRun.progress.completed}/${activeRun.progress.total}`,
+              `elapsed   ${(activeRun.elapsedMs / 1000).toFixed(2)}s`,
+              `actions   sel ${activeRun.actionCounts.select} · focus ${activeRun.actionCounts.focus} · pan ${activeRun.actionCounts.pan} · zoom ${activeRun.actionCounts.zoom}`
+            ].join("\n")
+          : [
+              "benchmark",
+              "active    none",
+              benchmarkState.recentResults?.[0]
+                ? `last      ${benchmarkState.recentResults[0].taskId} · ${benchmarkState.recentResults[0].demoId} · ${(benchmarkState.recentResults[0].elapsedMs / 1000).toFixed(2)}s`
+                : "last      none",
+              ...((benchmarkState.tasks ?? [])
+                .filter((task) => task.comparison)
+                .slice(0, 2)
+                .map((task) => `compare   ${task.id} vs ${task.comparison.demoId} · ${(task.comparison.elapsedMs / 1000).toFixed(2)}s`))
+            ].filter(Boolean).join("\n");
+        if (nextBenchmark !== benchmarkSignature) {
+          benchmarkSignature = nextBenchmark;
+          benchmarkBox.textContent = nextBenchmark;
+        }
+        lastUiSync = now;
+      }
 
       if (!selected) {
-        callout.style.display = "none";
+        if (callout.style.display !== "none") {
+          callout.style.display = "none";
+          callout.style.transform = "translate3d(-9999px, -9999px, 0) translate(-50%, -100%)";
+          calloutSignature = "";
+        }
         return;
       }
 
       const screen = options.project({ x: selected.x, y: selected.y + selected.height * 0.55 });
-      callout.style.display = "block";
-      callout.style.left = `${clamp(screen.x, 120, window.innerWidth - 120)}px`;
-      callout.style.top = `${clamp(screen.y, 96, window.innerHeight - 24)}px`;
-      callout.textContent = [
+      const x = clamp(screen.x, 120, window.innerWidth - 120);
+      const y = clamp(screen.y, 96, window.innerHeight - 24);
+      const nextCalloutText = [
         selected.id,
         selected.metadata?.role ?? selected.kind,
         `confidence ${selected.confidence.toFixed(2)}`,
         `importance ${selected.importance.toFixed(2)}`
       ].join("\n");
+      const nextCalloutSignature = `${x.toFixed(1)}:${y.toFixed(1)}:${nextCalloutText}`;
+      if (nextCalloutSignature !== calloutSignature) {
+        calloutSignature = nextCalloutSignature;
+        callout.style.display = "block";
+        callout.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -100%)`;
+        callout.textContent = nextCalloutText;
+      }
     }
   };
 }

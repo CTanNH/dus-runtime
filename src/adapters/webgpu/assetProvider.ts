@@ -8,6 +8,14 @@ const FONT_SOURCE = {
 const FONT_TIMEOUT_MS = 7000;
 const DEFAULT_LINE_HEIGHT = 0.30;
 const DEFAULT_MAX_WIDTH = 2.6;
+const FALLBACK_FONT_FAMILY = "'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+const FALLBACK_FONT_SIZE = 44;
+const FALLBACK_CELL_WIDTH = 64;
+const FALLBACK_CELL_HEIGHT = 80;
+const FALLBACK_COLUMNS = 16;
+const FALLBACK_DISTANCE_RANGE = 1.4;
+const FALLBACK_ASCII_START = 32;
+const FALLBACK_ASCII_END = 126;
 
 function getCharKey(charData) {
   if (typeof charData.char === "string" && charData.char.length > 0) return charData.char;
@@ -64,6 +72,126 @@ async function loadMsdfFont() {
     return { font: await jsonResponse.json(), bitmap };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function createScratchCanvas(width, height) {
+  if (typeof OffscreenCanvas !== "undefined") {
+    return new OffscreenCanvas(width, height);
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
+}
+
+function getCanvasContext(canvas) {
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("2D canvas context was unavailable for fallback font generation.");
+  return context;
+}
+
+async function buildFallbackMsdfFont() {
+  const charset = [];
+  for (let code = FALLBACK_ASCII_START; code <= FALLBACK_ASCII_END; code += 1) {
+    charset.push(String.fromCharCode(code));
+  }
+
+  const rows = Math.ceil(charset.length / FALLBACK_COLUMNS);
+  const width = FALLBACK_COLUMNS * FALLBACK_CELL_WIDTH;
+  const height = rows * FALLBACK_CELL_HEIGHT;
+  const canvas = createScratchCanvas(width, height);
+  const context = getCanvasContext(canvas);
+  const baseline = Math.round(FALLBACK_CELL_HEIGHT * 0.72);
+  const paddingX = 8;
+  const paddingY = 8;
+
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "#ffffff";
+  context.textAlign = "left";
+  context.textBaseline = "alphabetic";
+  context.font = `600 ${FALLBACK_FONT_SIZE}px ${FALLBACK_FONT_FAMILY}`;
+
+  const chars = [];
+  for (let index = 0; index < charset.length; index += 1) {
+    const char = charset[index];
+    const column = index % FALLBACK_COLUMNS;
+    const row = Math.floor(index / FALLBACK_COLUMNS);
+    const cellX = column * FALLBACK_CELL_WIDTH;
+    const cellY = row * FALLBACK_CELL_HEIGHT;
+    const originX = cellX + paddingX;
+    const originY = cellY + baseline;
+    const metrics = context.measureText(char);
+    const actualLeft = metrics.actualBoundingBoxLeft ?? 0;
+    const actualRight = metrics.actualBoundingBoxRight ?? Math.max(metrics.width, FALLBACK_FONT_SIZE * 0.45);
+    const actualAscent = metrics.actualBoundingBoxAscent ?? Math.round(FALLBACK_FONT_SIZE * 0.78);
+    const actualDescent = metrics.actualBoundingBoxDescent ?? Math.round(FALLBACK_FONT_SIZE * 0.22);
+    const left = Math.max(cellX + 1, Math.floor(originX - actualLeft - 1));
+    const top = Math.max(cellY + 1, Math.floor(originY - actualAscent - 1));
+    const glyphWidth = Math.min(
+      FALLBACK_CELL_WIDTH - 2,
+      Math.max(4, Math.ceil(actualLeft + actualRight + 2))
+    );
+    const glyphHeight = Math.min(
+      FALLBACK_CELL_HEIGHT - 2,
+      Math.max(6, Math.ceil(actualAscent + actualDescent + 2))
+    );
+
+    context.fillText(char, originX, originY);
+
+    chars.push({
+      id: char.codePointAt(0),
+      char,
+      x: left,
+      y: top,
+      width: glyphWidth,
+      height: glyphHeight,
+      xoffset: left - cellX,
+      yoffset: baseline - (top - cellY),
+      xadvance: Math.max(
+        Math.ceil(metrics.width + 6),
+        glyphWidth + Math.max(2, paddingX - Math.floor(actualLeft))
+      )
+    });
+  }
+
+  const imageData = context.getImageData(0, 0, width, height);
+  const { data } = imageData;
+  for (let index = 0; index < data.length; index += 4) {
+    const coverage = data[index + 3];
+    data[index + 0] = coverage;
+    data[index + 1] = coverage;
+    data[index + 2] = coverage;
+    data[index + 3] = coverage;
+  }
+  context.putImageData(imageData, 0, 0);
+
+  const bitmap = await createImageBitmap(canvas);
+  return {
+    font: {
+      common: {
+        lineHeight: FALLBACK_CELL_HEIGHT,
+        base: baseline,
+        scaleW: width,
+        scaleH: height
+      },
+      distanceField: {
+        distanceRange: FALLBACK_DISTANCE_RANGE
+      },
+      chars,
+      kernings: []
+    },
+    bitmap
+  };
+}
+
+async function loadMsdfFontWithFallback() {
+  try {
+    return await loadMsdfFont();
+  } catch (error) {
+    console.warn("Falling back to generated font atlas.", error);
+    return buildFallbackMsdfFont();
   }
 }
 
@@ -144,7 +272,7 @@ function buildImageAtlas() {
 }
 
 export async function createAssetProvider() {
-  const msdf = await loadMsdfFont();
+  const msdf = await loadMsdfFontWithFallback();
   const imageAtlas = buildImageAtlas();
 
   const chars = msdf.font.chars ?? [];

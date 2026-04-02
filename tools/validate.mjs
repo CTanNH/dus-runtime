@@ -7,22 +7,20 @@ import { setTimeout as delay } from "node:timers/promises";
 const ROOT = process.cwd();
 const HOST = "127.0.0.1";
 const CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const POWERSHELL_PATH = "C:\\Program Files\\PowerShell\\7\\pwsh.exe";
-const SERVER_SCRIPT = path.join(ROOT, "tools", "static-server.ps1");
+const NODE_EXE = process.execPath;
+const SERVER_SCRIPT = path.join(ROOT, "tools", "static-server.mjs");
 const SERVER_PORT = 8778;
 
 function spawnStaticServer() {
   return spawn(
-    POWERSHELL_PATH,
+    NODE_EXE,
     [
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
       SERVER_SCRIPT,
-      "-Root",
+      "--root",
       ROOT,
-      "-Port",
+      "--host",
+      HOST,
+      "--port",
       String(SERVER_PORT)
     ],
     {
@@ -215,6 +213,28 @@ async function waitForCanvas(cdp) {
   throw new Error("Canvas was not created by the page.");
 }
 
+async function waitForAppReady(cdp) {
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    const state = await cdp.send("Runtime.evaluate", {
+      expression: `(() => ({
+        ready: !!window.__DUS_READY__,
+        hasCanvas: document.querySelectorAll("canvas").length,
+        title: document.title
+      }))()`,
+      returnByValue: true,
+      awaitPromise: false
+    });
+
+    if (state.result.value?.ready) {
+      return state.result.value;
+    }
+    await delay(100);
+  }
+
+  throw new Error("DUS app did not reach ready state.");
+}
+
 async function evaluateJson(cdp, expression, awaitPromise = true) {
   const result = await cdp.send("Runtime.evaluate", {
     expression,
@@ -297,6 +317,7 @@ async function main() {
     const pageUrl = `${origin}/index.html`;
     await waitForLoad(cdp, pageUrl);
     await waitForCanvas(cdp);
+    await waitForAppReady(cdp);
     await delay(1000);
 
     const gpuReport = await evaluateJson(
@@ -328,16 +349,42 @@ async function main() {
         }));
         device.pushErrorScope("validation");
         try {
-          const bindGroupLayout = device.createBindGroupLayout({
-            entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } }]
+          const uniformLayout = device.createBindGroupLayout({
+            entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } }]
           });
-          const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
+          const textureLayout = device.createBindGroupLayout({
+            entries: [
+              { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: { type: "filtering" } },
+              { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: "float", viewDimension: "2d" } }
+            ]
+          });
+          const panelVertexLayout = {
+            arrayStride: 64,
+            stepMode: "instance",
+            attributes: [
+              { shaderLocation: 0, offset: 0, format: "float32x4" },
+              { shaderLocation: 1, offset: 16, format: "float32x4" },
+              { shaderLocation: 2, offset: 32, format: "float32x4" },
+              { shaderLocation: 3, offset: 48, format: "float32x4" }
+            ]
+          };
+          const contentVertexLayout = panelVertexLayout;
           device.createRenderPipeline({
-            layout: pipelineLayout,
-            vertex: { module: shaderModule, entryPoint: "vs_main" },
+            layout: device.createPipelineLayout({ bindGroupLayouts: [uniformLayout] }),
+            vertex: { module: shaderModule, entryPoint: "vs_panel_current", buffers: [panelVertexLayout] },
             fragment: {
               module: shaderModule,
-              entryPoint: "fs_main",
+              entryPoint: "fs_panel",
+              targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }]
+            },
+            primitive: { topology: "triangle-list" }
+          });
+          device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [uniformLayout, textureLayout] }),
+            vertex: { module: shaderModule, entryPoint: "vs_text", buffers: [contentVertexLayout] },
+            fragment: {
+              module: shaderModule,
+              entryPoint: "fs_text",
               targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }]
             },
             primitive: { topology: "triangle-list" }

@@ -68,6 +68,24 @@ fn median3(value: vec3<f32>) -> f32 {
   return max(min(value.x, value.y), min(max(value.x, value.y), value.z));
 }
 
+fn camera_scale() -> f32 {
+  return max(max(abs(U.camera[0].x), abs(U.camera[1].y)), 1.0e-4);
+}
+
+fn world_aa(base: f32) -> f32 {
+  return max(base / camera_scale(), 0.0025);
+}
+
+fn bevel_normal(local: vec2<f32>, half_size: vec2<f32>, stiffness: f32) -> vec3<f32> {
+  let nx = clamp(local.x / max(half_size.x, 1.0e-4), -1.0, 1.0);
+  let ny = clamp(local.y / max(half_size.y, 1.0e-4), -1.0, 1.0);
+  return normalize(vec3<f32>(
+    -nx * mix(0.82, 0.38, stiffness),
+    ny * mix(0.82, 0.38, stiffness),
+    1.28 + 1.02 * stiffness
+  ));
+}
+
 fn field_pullback(world_p: vec2<f32>, confidence: f32, stiffness: f32) -> vec2<f32> {
   let cursor_delta = world_p - U.cursor.xy;
   let cursor_r2 = dot(cursor_delta, cursor_delta) + 0.120;
@@ -243,7 +261,14 @@ fn fs_panel(in: PanelOut) -> @location(0) vec4<f32> {
   let pull = select(vec2<f32>(0.0, 0.0), field_pullback(in.world, confidence, stiffness), field_mode);
   let local = in.local - pull * mix(0.58, 0.12, stiffness);
   let sd = sd_round_box(local, half_size, corner);
-  let aa = max(fwidth(sd), select(0.004, 0.010, field_mode));
+  let aa = world_aa(select(0.010, 0.018, field_mode));
+  let normal = bevel_normal(local, half_size, stiffness);
+  let light = normalize(vec3<f32>(-0.28, 0.68, 1.0));
+  let view = vec3<f32>(0.0, 0.0, 1.0);
+  let half_vector = normalize(light + view);
+  let diffuse = max(dot(normal, light), 0.0);
+  let specular = pow(max(dot(normal, half_vector), 0.0), mix(18.0, 68.0, confidence));
+  let rim = pow(1.0 - max(dot(normal, view), 0.0), 2.0);
   let alpha = 1.0 - smoothstep(-aa, aa, sd);
   let tone = role_tint(role, confidence);
   let border = 1.0 - smoothstep(0.0, aa * 4.0 + 0.006, abs(sd));
@@ -272,15 +297,6 @@ fn fs_panel(in: PanelOut) -> @location(0) vec4<f32> {
     let color = fill + border * 0.12 * tone + halo * 0.18 * tone;
     return vec4<f32>(color, alpha);
   }
-
-  let grad = vec2<f32>(dpdx(sd), dpdy(sd));
-  let normal = normalize(vec3<f32>(-grad.x, -grad.y, 24.0));
-  let light = normalize(vec3<f32>(-0.28, 0.68, 1.0));
-  let view = vec3<f32>(0.0, 0.0, 1.0);
-  let half_vector = normalize(light + view);
-  let diffuse = max(dot(normal, light), 0.0);
-  let specular = pow(max(dot(normal, half_vector), 0.0), mix(18.0, 68.0, confidence));
-  let rim = pow(1.0 - max(dot(normal, view), 0.0), 2.0);
 
   let warm = vec3<f32>(0.94, 0.36, 0.24);
   let cold = vec3<f32>(0.24, 0.58, 0.98);
@@ -334,11 +350,9 @@ fn fs_text(in: ContentOut) -> @location(0) vec4<f32> {
   let atlas_uv = in.uv_rect.xy + local_uv * (in.uv_rect.zw - in.uv_rect.xy);
   let texel = textureSampleLevel(media_texture, media_sampler, atlas_uv, 0.0);
   let signed_distance = median3(texel.rgb) - 0.5;
-  let atlas_size = vec2<f32>(textureDimensions(media_texture, 0));
-  let unit_range = vec2<f32>(distance_range, distance_range) / atlas_size;
-  let screen_tex = max(fwidth(atlas_uv), vec2<f32>(1.0e-6, 1.0e-6));
-  let screen_px_range = max(0.5 * dot(unit_range, vec2<f32>(1.0, 1.0) / screen_tex), 1.0);
-  let alpha = clamp(screen_px_range * signed_distance + 0.5, 0.0, 1.0) * clamp(texel.a, 0.0, 1.0);
+  let span = max(in.half_size.x + in.half_size.y, 0.12);
+  let screen_px_range = max(distance_range * camera_scale() * span * 0.18, 1.0);
+  let alpha = smoothstep(-0.42, 0.42, signed_distance * screen_px_range) * clamp(texel.a, 0.0, 1.0);
   if (alpha <= 1.0e-4) {
     discard;
   }
@@ -366,7 +380,7 @@ fn fs_image(in: ContentOut) -> @location(0) vec4<f32> {
   let pull = select(vec2<f32>(0.0, 0.0), field_pullback(in.world, confidence, stiffness), field_mode);
   let local = in.local - pull * mix(0.62, 0.10, stiffness);
   let sd = sd_round_box(local, in.half_size, 0.06 * max(in.half_size.x * 2.0, in.half_size.y * 2.0) + 0.05);
-  let aa = max(fwidth(sd), 0.006);
+  let aa = world_aa(0.012);
   let mask = 1.0 - smoothstep(-aa, aa, sd);
   if (mask <= 1.0e-4) {
     discard;

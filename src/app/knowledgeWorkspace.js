@@ -295,8 +295,6 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
   relations.push({ from: "token-co-visible", to: "answer-hypothesis", type: "belongs_to", weight: 0.75, idealDistance: 1.0 });
   relations.push({ from: "token-uncertainty", to: "answer-risk", type: "belongs_to", weight: 0.72, idealDistance: 0.92 });
   relations.push({ from: "token-readable", to: "evidence-plain", type: "belongs_to", weight: 0.66, idealDistance: 0.96 });
-  relations.push({ from: "token-constraint", to: "answer-system", type: "belongs_to", weight: 0.74, idealDistance: 0.92 });
-  relations.push({ from: "token-overlap", to: "contradiction-scale", type: "belongs_to", weight: 0.56, idealDistance: 1.08 });
   relations.push({ from: "token-focus", to: "evidence-focus", type: "belongs_to", weight: 0.68, idealDistance: 0.94 });
   relations.push({ from: "token-loss", to: "evidence-debug", type: "belongs_to", weight: 0.72, idealDistance: 0.94 });
   relations.push({ from: "token-bridge", to: "evidence-bridge", type: "belongs_to", weight: 0.64, idealDistance: 0.94 });
