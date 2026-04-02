@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { buildKnowledgeDocumentFromPacket } from "../src/core/knowledgePacket.js";
+import { buildKnowledgeDocumentFromPacket, normalizeKnowledgePacket } from "../src/core/knowledgePacket.js";
 import { buildKnowledgeSceneFromDocument } from "../src/core/ingest.js";
 import { normalizeSceneContract } from "../src/core/contracts.js";
 
@@ -39,7 +39,8 @@ async function main() {
   const raw = await fs.readFile(input, "utf8");
   const packet = JSON.parse(raw);
   const assetProvider = createValidationAssetProvider();
-  const document = buildKnowledgeDocumentFromPacket(packet);
+  const normalizedPacket = normalizeKnowledgePacket(packet);
+  const document = buildKnowledgeDocumentFromPacket(normalizedPacket.packet);
   const scene = buildKnowledgeSceneFromDocument(document, assetProvider);
   const normalized = normalizeSceneContract(scene);
 
@@ -47,6 +48,7 @@ async function main() {
     console.error(JSON.stringify({
       ok: false,
       input,
+      packetWarnings: normalizedPacket.diagnostics.warnings,
       errors: normalized.diagnostics.errors,
       warnings: normalized.diagnostics.warnings
     }, null, 2));
@@ -61,6 +63,7 @@ async function main() {
     imageEntries: document.images.length,
     relations: document.relations.length,
     sceneNodes: scene.nodes.length,
+    packetWarnings: normalizedPacket.diagnostics.warnings,
     warnings: normalized.diagnostics.warnings
   }, null, 2));
 }

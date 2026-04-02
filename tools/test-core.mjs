@@ -4,7 +4,7 @@ import { normalizeSceneContract } from "../src/core/contracts.js";
 import { createBenchmarkHarness } from "../src/core/benchmark.js";
 import { createFixtureScene } from "../src/core/fixtures.js";
 import { buildKnowledgeSceneFromDocument } from "../src/core/ingest.js";
-import { buildKnowledgeDocumentFromPacket } from "../src/core/knowledgePacket.js";
+import { buildKnowledgeDocumentFromPacket, normalizeKnowledgePacket } from "../src/core/knowledgePacket.js";
 import { buildScaffold } from "../src/core/scaffold.js";
 import { createDusRuntime } from "../src/core/runtime.js";
 
@@ -161,6 +161,40 @@ await run("knowledge packet expands into document-level semantic scene input", a
   assert.ok(document.relations.some((relation) => relation.type === "belongs_to" && relation.from === "token-a" && relation.to === "risk-a"));
 });
 
+await run("knowledge packet diagnostics drop malformed items and unknown targets", async () => {
+  const normalized = normalizeKnowledgePacket({
+    claim: {
+      id: "claim",
+      statement: "Claim"
+    },
+    evidence: [
+      { id: "ev-1", text: "Good evidence", supports: ["claim", "missing-target"] },
+      { id: "", text: "Broken evidence" }
+    ],
+    figures: [
+      { id: "figure-1", imageId: "retrieval-map", targets: ["ev-1", "missing-target"] }
+    ],
+    citations: [
+      { id: "citation-1", label: "[1]", targets: ["ev-1", "missing-target"] }
+    ],
+    tokens: [
+      { id: "token-1", text: "tag", targetId: "missing-target" }
+    ],
+    relations: [
+      { from: "ev-1", to: "claim", type: "supports" },
+      { from: "ev-1", to: "missing-target", type: "supports" }
+    ]
+  });
+
+  assert.ok(normalized.diagnostics.warnings.length >= 4);
+  assert.equal(normalized.packet.evidence.length, 1);
+  assert.deepEqual(normalized.packet.evidence[0].supports, ["claim"]);
+  assert.deepEqual(normalized.packet.figures[0].targets, ["ev-1"]);
+  assert.deepEqual(normalized.packet.citations[0].targets, ["ev-1"]);
+  assert.equal(normalized.packet.tokens[0].targetId, undefined);
+  assert.equal(normalized.packet.relations.length, 1);
+});
+
 await run("scaffold output is deterministic for a fixed seed", async () => {
   const scene = createFixtureScene();
   const left = buildScaffold(scene, { seed: 17 });
@@ -282,4 +316,4 @@ await run("benchmark harness records comparable task runs", async () => {
   assert.ok(baselineState.tasks[0].comparison.elapsedMs > 0);
 });
 
-console.log("Passed 8 core runtime checks.");
+console.log("Passed 9 core runtime checks.");

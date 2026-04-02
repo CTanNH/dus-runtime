@@ -5,6 +5,160 @@ function pushUniqueRelation(relations, relation) {
   }
 }
 
+function createPacketDiagnostics() {
+  return { errors: [], warnings: [] };
+}
+
+function warnPacket(diagnostics, path, message) {
+  diagnostics.warnings.push({ path, message });
+}
+
+function trimString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeEntry(listName, item, index, options, diagnostics) {
+  const id = trimString(item?.id);
+  if (!id) {
+    warnPacket(diagnostics, `${listName}[${index}].id`, `Dropped ${listName} entry without a stable id.`);
+    return null;
+  }
+
+  const payloadKey = options.payloadKey;
+  const payload = trimString(item?.[payloadKey]);
+  if (options.requirePayload && !payload) {
+    warnPacket(diagnostics, `${listName}[${index}].${payloadKey}`, `Dropped ${id} because ${payloadKey} was empty.`);
+    return null;
+  }
+
+  return {
+    ...item,
+    id,
+    [payloadKey]: payload || item?.[payloadKey]
+  };
+}
+
+function filterTargetIds(ids, knownIds, diagnostics, path) {
+  const next = [];
+  for (const rawId of ids ?? []) {
+    const id = trimString(rawId);
+    if (!id) continue;
+    if (!knownIds.has(id)) {
+      warnPacket(diagnostics, path, `Dropped unknown target "${id}".`);
+      continue;
+    }
+    next.push(id);
+  }
+  return [...new Set(next)];
+}
+
+export function normalizeKnowledgePacket(packet) {
+  const diagnostics = createPacketDiagnostics();
+  const normalized = {
+    metadata: { ...(packet?.metadata ?? {}) },
+    claim: packet?.claim ? { ...packet.claim } : null,
+    answerBlocks: [],
+    evidence: [],
+    contradictions: [],
+    figures: [],
+    citations: [],
+    tokens: [],
+    relations: [...(packet?.relations ?? [])],
+    constraints: [...(packet?.constraints ?? [])],
+    viewport: packet?.viewport ? { ...packet.viewport } : undefined,
+    interactionField: packet?.interactionField ? { ...packet.interactionField } : undefined
+  };
+
+  if (normalized.claim) {
+    normalized.claim.id = trimString(normalized.claim.id) || "answer-hypothesis";
+    normalized.claim.statement = trimString(normalized.claim.statement);
+    normalized.claim.title = trimString(normalized.claim.title);
+    if (!normalized.claim.statement) {
+      warnPacket(diagnostics, "claim.statement", "Claim statement was empty and was dropped.");
+      normalized.claim = null;
+    }
+  }
+
+  normalized.answerBlocks = (packet?.answerBlocks ?? [])
+    .map((item, index) => normalizeEntry("answerBlocks", item, index, { payloadKey: "text", requirePayload: true }, diagnostics))
+    .filter(Boolean);
+  normalized.evidence = (packet?.evidence ?? [])
+    .map((item, index) => normalizeEntry("evidence", item, index, { payloadKey: "text", requirePayload: true }, diagnostics))
+    .filter(Boolean);
+  normalized.contradictions = (packet?.contradictions ?? [])
+    .map((item, index) => normalizeEntry("contradictions", item, index, { payloadKey: "text", requirePayload: true }, diagnostics))
+    .filter(Boolean);
+  normalized.figures = (packet?.figures ?? [])
+    .map((item, index) => {
+      const next = normalizeEntry("figures", item, index, { payloadKey: "imageId", requirePayload: true }, diagnostics);
+      if (!next) return null;
+      next.imageId = trimString(next.imageId);
+      return next.imageId ? next : null;
+    })
+    .filter(Boolean);
+  normalized.citations = (packet?.citations ?? [])
+    .map((item, index) => normalizeEntry("citations", item, index, { payloadKey: "label", requirePayload: true }, diagnostics))
+    .filter(Boolean);
+  normalized.tokens = (packet?.tokens ?? [])
+    .map((item, index) => normalizeEntry("tokens", item, index, { payloadKey: "text", requirePayload: true }, diagnostics))
+    .filter(Boolean);
+
+  const knownIds = new Set();
+  if (normalized.claim) {
+    knownIds.add(normalized.claim.id);
+    if (normalized.claim.title) {
+      knownIds.add(trimString(normalized.claim.titleId) || "lead-title");
+    }
+  }
+  for (const collection of [normalized.answerBlocks, normalized.evidence, normalized.contradictions, normalized.figures, normalized.citations, normalized.tokens]) {
+    for (const item of collection) knownIds.add(item.id);
+  }
+
+  for (let index = 0; index < normalized.evidence.length; index += 1) {
+    const item = normalized.evidence[index];
+    item.supports = filterTargetIds(item.supports, knownIds, diagnostics, `evidence[${index}].supports`);
+    item.figures = filterTargetIds(item.figures, knownIds, diagnostics, `evidence[${index}].figures`);
+  }
+  for (let index = 0; index < normalized.contradictions.length; index += 1) {
+    normalized.contradictions[index].targets = filterTargetIds(normalized.contradictions[index].targets, knownIds, diagnostics, `contradictions[${index}].targets`);
+  }
+  for (let index = 0; index < normalized.figures.length; index += 1) {
+    normalized.figures[index].targets = filterTargetIds(normalized.figures[index].targets, knownIds, diagnostics, `figures[${index}].targets`);
+  }
+  for (let index = 0; index < normalized.citations.length; index += 1) {
+    normalized.citations[index].targets = filterTargetIds(normalized.citations[index].targets, knownIds, diagnostics, `citations[${index}].targets`);
+  }
+  for (let index = 0; index < normalized.tokens.length; index += 1) {
+    const targetId = trimString(normalized.tokens[index].targetId);
+    if (targetId && !knownIds.has(targetId)) {
+      warnPacket(diagnostics, `tokens[${index}].targetId`, `Dropped unknown target "${targetId}".`);
+      normalized.tokens[index].targetId = undefined;
+    } else {
+      normalized.tokens[index].targetId = targetId || undefined;
+    }
+  }
+
+  normalized.relations = (normalized.relations ?? []).filter((relation, index) => {
+    const from = trimString(relation?.from);
+    const to = trimString(relation?.to);
+    const type = trimString(relation?.type);
+    if (!from || !to || !type) {
+      warnPacket(diagnostics, `relations[${index}]`, "Dropped relation with missing endpoints or type.");
+      return false;
+    }
+    if (!knownIds.has(from) || !knownIds.has(to)) {
+      warnPacket(diagnostics, `relations[${index}]`, `Dropped relation "${from}" -> "${to}" because at least one endpoint was unknown.`);
+      return false;
+    }
+    relation.from = from;
+    relation.to = to;
+    relation.type = type;
+    return true;
+  });
+
+  return { packet: normalized, diagnostics };
+}
+
 function createMetadata(packet) {
   return {
     demoId: packet.metadata?.demoId ?? "knowledge",
@@ -173,6 +327,8 @@ function mapTokens(packet, text, relations) {
 }
 
 export function buildKnowledgeDocumentFromPacket(packet) {
+  const normalized = normalizeKnowledgePacket(packet);
+  packet = normalized.packet;
   const text = [];
   const images = [];
   const relations = [];
