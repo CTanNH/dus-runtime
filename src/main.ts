@@ -199,6 +199,35 @@ async function main() {
     hasManualCamera = false;
   }
 
+  function focusNodes(nodeIds) {
+    const poses = runtime.getLayout().nodePoses.filter((entry) => nodeIds.includes(entry.id));
+    if (!poses.length) return;
+
+    interaction.selectedNodeId = poses[0].id;
+    interaction.focusNodeId = poses[0].id;
+    interaction.queryPulse = Math.max(interaction.queryPulse, 0.9);
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const pose of poses) {
+      minX = Math.min(minX, pose.x - pose.width * 1.1);
+      maxX = Math.max(maxX, pose.x + pose.width * 1.1);
+      minY = Math.min(minY, pose.y - pose.height * 1.35);
+      maxY = Math.max(maxY, pose.y + pose.height * 1.35);
+    }
+
+    camera = fitCameraToBounds({
+      minX,
+      maxX,
+      minY,
+      maxY
+    }, Math.min(1.02, currentDemo.fitScale + 0.06));
+    renderer.setCamera(camera);
+    hasManualCamera = false;
+  }
+
   function switchDemo(nextDemoId) {
     if (nextDemoId === currentDemo.id) return;
     const url = new URL(window.location.href);
@@ -225,6 +254,9 @@ async function main() {
       },
       focusNode(nodeId) {
         focusNode(nodeId);
+      },
+      focusNodes(nodeIds) {
+        focusNodes(nodeIds);
       },
       setViewPreset(preset) {
         applyViewPreset(preset);

@@ -329,6 +329,20 @@ export async function buildFieldBenchmarkScene(assetProvider) {
           nodeId: "cluster-runtime",
           description: "The lower band names the non-visual machinery: scaffold, losses, projection, relation map, replay."
         }
+      ],
+      tasks: [
+        {
+          id: "stiffness-gradient",
+          title: "Compare hard vs soft regions",
+          prompt: "Jump between retrieval and uncertainty to compare how confidence changes the surface feel.",
+          nodeIds: ["cluster-retrieval", "cluster-uncertainty", "benchmark-figure-uncertainty"]
+        },
+        {
+          id: "runtime-seam",
+          title: "See where the runtime shows through",
+          prompt: "Inspect the surface and runtime clusters together. This is where the benchmark names the actual machinery, not just the look.",
+          nodeIds: ["cluster-interface", "cluster-runtime", "cluster-reasoning"]
+        }
       ]
     },
     nodes,

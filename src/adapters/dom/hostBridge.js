@@ -30,6 +30,7 @@ export function createDomHostBridge(options) {
   const guideTitle = document.createElement("div");
   const guideBody = document.createElement("div");
   const guideList = document.createElement("div");
+  const taskList = document.createElement("div");
   const guideActions = document.createElement("div");
 
   setStyle(root, {
@@ -121,6 +122,12 @@ export function createDomHostBridge(options) {
     gap: "6px"
   });
 
+  setStyle(taskList, {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px"
+  });
+
   const buttons = {
     benchmark: createButton("Benchmark", () => options.actions.switchDemo("field")),
     workspace: createButton("Workspace", () => options.actions.switchDemo("knowledge")),
@@ -146,7 +153,7 @@ export function createDomHostBridge(options) {
     buttons.pause,
     buttons.replay
   );
-  guide.append(guideTitle, guideBody, guideList, guideActions);
+  guide.append(guideTitle, guideBody, taskList, guideList, guideActions);
   root.append(controls, inspector, callout, guide);
   document.body.append(root);
 
@@ -160,6 +167,7 @@ export function createDomHostBridge(options) {
     update(viewModel) {
       const demo = viewModel.scene.metadata ?? {};
       const guideSteps = demo.guideSteps ?? [];
+      const tasks = demo.tasks ?? [];
       const selectionId = viewModel.interactionField.selectedNodeId;
       const selected = selectionId
         ? viewModel.layout.nodePoses.find((pose) => pose.id === selectionId)
@@ -214,7 +222,8 @@ export function createDomHostBridge(options) {
       const nextGuideSignature = JSON.stringify({
         demoId: demo.demoId ?? "scene",
         selectionId,
-        steps: guideSteps.map((step) => ({ id: step.id, label: step.label, nodeId: step.nodeId }))
+        steps: guideSteps.map((step) => ({ id: step.id, label: step.label, nodeId: step.nodeId })),
+        tasks: tasks.map((task) => ({ id: task.id, title: task.title, nodeIds: task.nodeIds }))
       });
 
       if (nextGuideSignature !== guideSignature) {
@@ -226,6 +235,18 @@ export function createDomHostBridge(options) {
           "watch for",
           ...(demo.watchFor ?? []).map((item) => `- ${item}`)
         ].filter(Boolean).join("\n");
+
+        taskList.replaceChildren();
+        for (const task of tasks) {
+          const button = createButton(task.title, () => options.actions.focusNodes(task.nodeIds));
+          button.style.justifyContent = "flex-start";
+          button.style.textAlign = "left";
+          button.style.width = "100%";
+          button.style.borderRadius = "14px";
+          button.style.padding = "8px 10px";
+          button.textContent = `${task.title} — ${task.prompt}`;
+          taskList.append(button);
+        }
 
         guideList.replaceChildren();
         for (const step of guideSteps) {

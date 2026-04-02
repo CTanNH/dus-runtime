@@ -346,6 +346,26 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
           nodeId: "citation-b",
           description: "Citations should remain nearby and ordered, but they are still part of the same solved surface."
         }
+      ],
+      tasks: [
+        {
+          id: "trace-support",
+          title: "Trace support for the claim",
+          prompt: "Can you follow one support chain from the main claim through evidence, figure, and citation without losing context?",
+          nodeIds: ["answer-hypothesis", "evidence-anchor", "figure-retrieval-map", "citation-a"]
+        },
+        {
+          id: "find-risk",
+          title: "Find the weakest region",
+          prompt: "Which part of the workspace looks least stable, and can you inspect it without the answer collapsing away?",
+          nodeIds: ["answer-risk", "contradiction-ui", "figure-uncertainty-ridge", "citation-c"]
+        },
+        {
+          id: "explain-layout",
+          title: "Explain why this node is here",
+          prompt: "Select the debug evidence chain and check whether the inspector makes the solver legible instead of magical.",
+          nodeIds: ["answer-system", "evidence-debug", "token-loss", "citation-d"]
+        }
       ]
     },
     nodes,
