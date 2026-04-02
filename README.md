@@ -36,6 +36,7 @@ This repo currently demonstrates:
 - semantic nodes with confidence, importance, stiffness, and relations
 - scaffold layout plus iterative optimization
 - hard readability constraints such as bounds and non-overlap
+- packet-driven scene ingestion for AI/retrieval-style knowledge payloads
 - `plain`, `field`, and `debug` surfaces over the same solved layout
 - a DOM inspector/host bridge layered over a WebGPU canvas
 - MSDF text and raster image rendering inside the same runtime
@@ -117,6 +118,19 @@ The runtime consumes scenes made of:
 
 and produces solved poses plus explainability data.
 
+The knowledge demo no longer relies on an inline hand-built scene. It now flows through:
+
+```text
+knowledge packet JSON
+  -> packet adapter
+  -> semantic document
+  -> normalized scene contract
+  -> scaffold + solver
+  -> renderer adapters
+```
+
+That packet layer is the first concrete step toward ingesting real LLM/retrieval output instead of demo-only scene objects.
+
 Task-oriented scenes can also expose benchmark runs through scene metadata. The runtime demos now use that layer to:
 
 - start named task runs
@@ -186,6 +200,12 @@ Official demo URLs:
 http://127.0.0.1:8000/?demo=field
 http://127.0.0.1:8000/?demo=baseline
 http://127.0.0.1:8000/?demo=knowledge
+```
+
+The knowledge workspace can also load an alternate packet at runtime:
+
+```text
+http://127.0.0.1:8000/?demo=knowledge&packet=/absolute-or-relative-packet.json
 ```
 
 If `serve` is unavailable:

@@ -4,6 +4,7 @@ import { normalizeSceneContract } from "../src/core/contracts.js";
 import { createBenchmarkHarness } from "../src/core/benchmark.js";
 import { createFixtureScene } from "../src/core/fixtures.js";
 import { buildKnowledgeSceneFromDocument } from "../src/core/ingest.js";
+import { buildKnowledgeDocumentFromPacket } from "../src/core/knowledgePacket.js";
 import { buildScaffold } from "../src/core/scaffold.js";
 import { createDusRuntime } from "../src/core/runtime.js";
 
@@ -120,6 +121,44 @@ await run("knowledge ingestion builds a contract-clean scene from semantic docum
   assert.equal(scene.nodes[0].rendererPayload.type, "text");
   assert.equal(scene.nodes[2].rendererPayload.type, "image");
   assert.equal(scene.relations.length, 2);
+});
+
+await run("knowledge packet expands into document-level semantic scene input", async () => {
+  const document = buildKnowledgeDocumentFromPacket({
+    metadata: { title: "Packet Scene" },
+    claim: {
+      title: "Packet Claim",
+      id: "claim",
+      statement: "Claim statement",
+      confidence: 0.91
+    },
+    answerBlocks: [
+      { id: "answer-detail", text: "Detail block", confidence: 0.82 }
+    ],
+    evidence: [
+      { id: "evidence-a", text: "Evidence A", confidence: 0.84, supports: ["claim"] }
+    ],
+    contradictions: [
+      { id: "risk-a", text: "Risk A", confidence: 0.38, targets: ["claim"] }
+    ],
+    figures: [
+      { id: "figure-a", imageId: "retrieval-map", confidence: 0.7, targets: ["evidence-a"] }
+    ],
+    citations: [
+      { id: "citation-a", label: "[A] Source", confidence: 0.88, targets: ["evidence-a"] }
+    ],
+    tokens: [
+      { id: "token-a", text: "uncertain", confidence: 0.4, targetId: "risk-a" }
+    ]
+  });
+
+  assert.equal(document.metadata.title, "Packet Scene");
+  assert.equal(document.text.length, 7);
+  assert.equal(document.images.length, 1);
+  assert.ok(document.relations.some((relation) => relation.type === "supports" && relation.from === "evidence-a" && relation.to === "claim"));
+  assert.ok(document.relations.some((relation) => relation.type === "contradicts" && relation.from === "risk-a" && relation.to === "claim"));
+  assert.ok(document.relations.some((relation) => relation.type === "cites" && relation.from === "citation-a" && relation.to === "evidence-a"));
+  assert.ok(document.relations.some((relation) => relation.type === "belongs_to" && relation.from === "token-a" && relation.to === "risk-a"));
 });
 
 await run("scaffold output is deterministic for a fixed seed", async () => {
@@ -243,4 +282,4 @@ await run("benchmark harness records comparable task runs", async () => {
   assert.ok(baselineState.tasks[0].comparison.elapsedMs > 0);
 });
 
-console.log("Passed 7 core runtime checks.");
+console.log("Passed 8 core runtime checks.");

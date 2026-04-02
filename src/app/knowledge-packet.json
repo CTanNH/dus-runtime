@@ -1,0 +1,78 @@
+{
+  "metadata": {
+    "demoId": "knowledge",
+    "title": "Knowledge Workspace",
+    "subtitle": "Task demo for AI-native interfaces",
+    "description": "A narrower workspace that tries to prove usefulness: answers, evidence, contradictions, figures, and citations share one solvable reading surface.",
+    "intent": "task",
+    "watchFor": [
+      "The hypothesis should remain readable while evidence and contradiction nodes negotiate around it.",
+      "Low-confidence contradiction fragments should feel warmer and less rigid than the cold, high-confidence answer blocks.",
+      "The same solved layout should stay coherent in plain, field, and debug views."
+    ],
+    "guideSteps": [
+      { "id": "hypothesis", "label": "Main claim", "nodeId": "answer-hypothesis", "description": "Start here. This is the statement the workspace is trying to stabilize without collapsing surrounding evidence." },
+      { "id": "support", "label": "Support chain", "nodeId": "evidence-anchor", "description": "These evidence nodes should settle near the answer, preserving proximity without becoming a fixed card stack." },
+      { "id": "risk", "label": "Low-confidence risk", "nodeId": "contradiction-ui", "description": "This contradiction node is intentionally weaker and hotter. It should stay legible without dominating the answer." },
+      { "id": "figure", "label": "Figure anchor", "nodeId": "figure-uncertainty-ridge", "description": "Images behave as first-class evidence. They are anchored by relation, not by a side panel." },
+      { "id": "citation", "label": "Citation band", "nodeId": "citation-b", "description": "Citations should remain nearby and ordered, but they are still part of the same solved surface." }
+    ],
+    "tasks": [
+      { "id": "claim-support", "title": "Trace support for the claim", "prompt": "Can you follow one support chain from the main claim through evidence, figure, and citation without losing context?", "nodeIds": ["answer-hypothesis", "evidence-anchor", "figure-retrieval-map", "citation-a"], "successNodeIds": ["answer-hypothesis", "evidence-anchor", "citation-a"], "successMode": "all" },
+      { "id": "weak-region", "title": "Find the weakest region", "prompt": "Which part of the workspace looks least stable, and can you inspect it without the answer collapsing away?", "nodeIds": ["answer-risk", "contradiction-ui", "figure-uncertainty-ridge", "citation-c"], "successNodeIds": ["contradiction-ui", "figure-uncertainty-ridge", "citation-c"], "successMode": "all" },
+      { "id": "layout-explain", "title": "Explain why this node is here", "prompt": "Select the debug evidence chain and check whether the inspector makes the solver legible instead of magical.", "nodeIds": ["answer-system", "evidence-debug", "token-loss", "citation-d"], "successNodeIds": ["answer-system", "evidence-debug", "citation-d"], "successMode": "all" }
+    ]
+  },
+  "claim": {
+    "title": "Differentiable UI Surface",
+    "id": "answer-hypothesis",
+    "statement": "Answers stabilize when evidence, counter-evidence, and uncertainty stay co-visible inside one navigable field.",
+    "confidence": 0.93,
+    "importance": 0.94,
+    "stiffness": 0.92,
+    "maxWidth": 4.5,
+    "lineHeight": 0.3,
+    "paddingX": 0.2,
+    "paddingY": 0.16
+  },
+  "answerBlocks": [
+    { "id": "answer-system", "text": "The runtime is not a card stack. It solves toward readable targets while continuously negotiating collision, order, relation, and focus.", "confidence": 0.88, "importance": 0.86, "maxWidth": 4.4, "lineHeight": 0.26 },
+    { "id": "answer-risk", "text": "Low-confidence phrases remain visually unstable, but they no longer break the reading surface.", "confidence": 0.74, "importance": 0.74, "stiffness": 0.62, "maxWidth": 3.8, "lineHeight": 0.25, "paddingY": 0.14 }
+  ],
+  "evidence": [
+    { "id": "evidence-anchor", "text": "Citation-linked scaffolds preserve reading order under interaction.", "confidence": 0.92, "importance": 0.88, "stiffness": 0.8248, "supports": ["answer-hypothesis"], "figures": ["figure-retrieval-map"] },
+    { "id": "evidence-focus", "text": "Semantic focus pulls related nodes into a local basin without collapsing the global layout.", "confidence": 0.84, "importance": 0.78, "stiffness": 0.7896, "supports": ["answer-system"] },
+    { "id": "evidence-debug", "text": "Per-node loss accounting makes the runtime explainable instead of magical.", "confidence": 0.89, "importance": 0.84, "stiffness": 0.8116, "supports": ["answer-system"], "figures": ["figure-citation-lattice"] },
+    { "id": "evidence-bridge", "text": "DOM overlays can attach to solved poses for selection, annotation, and accessibility.", "confidence": 0.86, "importance": 0.8, "stiffness": 0.7984, "supports": ["answer-system"] },
+    { "id": "evidence-image", "text": "Figures behave like first-class evidence nodes instead of decorative sidecars.", "confidence": 0.77, "importance": 0.72, "stiffness": 0.7588, "supports": ["answer-hypothesis"] },
+    { "id": "evidence-plain", "text": "A plain renderer keeps the system readable when fluid styling is disabled.", "confidence": 0.95, "importance": 0.9, "stiffness": 0.838, "supports": ["answer-risk"] }
+  ],
+  "contradictions": [
+    { "id": "contradiction-ui", "text": "A pure field renderer can obscure text if readability constraints are too weak.", "confidence": 0.34, "importance": 0.66, "stiffness": 0.322, "targets": ["answer-hypothesis"], "idealDistance": 2.3, "weight": 1.0 },
+    { "id": "contradiction-scale", "text": "Naive all-pairs optimization will stall before thousand-node scenes are pleasant.", "confidence": 0.42, "importance": 0.72, "stiffness": 0.346, "targets": ["answer-system"], "idealDistance": 2.4 },
+    { "id": "contradiction-adoption", "text": "If the runtime cannot explain itself, teams will retreat to deterministic boxes.", "confidence": 0.51, "importance": 0.78, "stiffness": 0.373, "targets": ["answer-system"], "idealDistance": 2.2, "weight": 0.72 }
+  ],
+  "figures": [
+    { "id": "figure-retrieval-map", "imageId": "retrieval-map", "clusterId": "figure-support", "confidence": 0.82, "importance": 0.7, "stiffness": 0.54, "figureSide": "right", "targets": ["evidence-anchor"] },
+    { "id": "figure-uncertainty-ridge", "imageId": "uncertainty-ridge", "clusterId": "figure-contradiction", "confidence": 0.44, "importance": 0.62, "stiffness": 0.3, "figureSide": "right", "targets": ["contradiction-ui"] },
+    { "id": "figure-citation-lattice", "imageId": "citation-lattice", "clusterId": "figure-evidence", "confidence": 0.76, "importance": 0.66, "stiffness": 0.46, "figureSide": "left", "targets": ["evidence-debug"] }
+  ],
+  "citations": [
+    { "id": "citation-a", "label": "[A] Retrieval trace · 128 runs", "confidence": 0.88, "importance": 0.596, "stiffness": 0.6064, "targets": ["evidence-anchor"], "weight": 0.82, "idealDistance": 1.4 },
+    { "id": "citation-b", "label": "[B] Counter-evidence log · 14 contradictions", "confidence": 0.7, "importance": 0.56, "stiffness": 0.556, "targets": ["contradiction-ui"], "weight": 0.7, "idealDistance": 1.2 },
+    { "id": "citation-c", "label": "[C] Confidence decay probe · 2.4s window", "confidence": 0.58, "importance": 0.536, "stiffness": 0.5224, "targets": ["answer-risk"], "weight": 0.62, "idealDistance": 1.3 },
+    { "id": "citation-d", "label": "[D] Layout replay seed · 11", "confidence": 0.94, "importance": 0.608, "stiffness": 0.6232, "targets": ["evidence-debug"], "weight": 0.76, "idealDistance": 1.3 },
+    { "id": "citation-e", "label": "[E] Host bridge audit · DOM overlay attached", "confidence": 0.86, "importance": 0.592, "stiffness": 0.6008, "targets": ["evidence-bridge"], "weight": 0.72, "idealDistance": 1.1 }
+  ],
+  "tokens": [
+    { "id": "token-co-visible", "text": "co-visible", "confidence": 0.95, "importance": 0.666, "stiffness": 0.505, "targetId": "answer-hypothesis", "weight": 0.75, "idealDistance": 1.0 },
+    { "id": "token-uncertainty", "text": "uncertainty", "confidence": 0.4, "importance": 0.512, "stiffness": 0.34, "targetId": "answer-risk", "weight": 0.72, "idealDistance": 0.92 },
+    { "id": "token-readable", "text": "readable", "confidence": 0.9, "importance": 0.652, "stiffness": 0.49, "targetId": "evidence-plain", "weight": 0.66, "idealDistance": 0.96 },
+    { "id": "token-focus", "text": "focus field", "confidence": 0.72, "importance": 0.6016, "stiffness": 0.436, "flowGap": 0.08, "targetId": "evidence-focus", "weight": 0.68, "idealDistance": 0.94 },
+    { "id": "token-loss", "text": "loss graph", "confidence": 0.88, "importance": 0.6464, "stiffness": 0.484, "flowGap": 0.08, "targetId": "evidence-debug", "weight": 0.72, "idealDistance": 0.94 },
+    { "id": "token-bridge", "text": "host bridge", "confidence": 0.64, "importance": 0.5792, "stiffness": 0.412, "flowGap": 0.08, "targetId": "evidence-bridge", "weight": 0.64, "idealDistance": 0.94 }
+  ],
+  "relations": [
+    { "from": "evidence-focus", "to": "evidence-anchor", "type": "related", "weight": 0.48, "idealDistance": 1.5 }
+  ]
+}

@@ -16,6 +16,18 @@ scene
   -> renderer adapter(s) + host bridge
 ```
 
+The current knowledge demo also has a higher-level ingest path:
+
+```text
+knowledge packet
+  -> packet adapter
+  -> semantic document
+  -> normalized scene
+  -> scaffold
+  -> solver
+  -> adapters
+```
+
 ## Scene Model
 
 The solver does not operate on DOM elements or CSS boxes. It operates on semantic nodes:
@@ -70,6 +82,24 @@ Its current job is pragmatic, not ornamental:
 - surface warnings/errors through runtime diagnostics
 
 This matters because DUS is trying to become infrastructure. If the scene contract is vague, every adapter and every demo quietly invents its own rules.
+
+### 1.5 Packet ingest
+
+`src/core/knowledgePacket.js`
+
+The runtime now has a first upstream-facing adapter layer for knowledge packets. This layer is intentionally narrow:
+
+- claim
+- answer blocks
+- evidence
+- contradictions
+- citations
+- figures
+- tokens
+
+The packet adapter expands that structure into a semantic document, which is then converted into the scene contract consumed by the runtime.
+
+This is strategically important. It means DUS is starting to own an input pipeline for AI-native surfaces instead of only consuming hand-authored demo scenes.
 
 ### 2. Scaffold build
 
@@ -182,6 +212,8 @@ This split is essential if DUS is to become infrastructure instead of only a vis
 `src/app/knowledgeWorkspace.js`
 
 The current wedge is intentionally narrow: an AI knowledge workspace.
+
+That workspace is now fed by a local `knowledge-packet.json` asset rather than a hard-coded inline scene object, and it can be overridden with a `?packet=` query parameter for external packet experiments.
 
 Why this wedge:
 
