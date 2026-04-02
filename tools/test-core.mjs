@@ -101,4 +101,32 @@ await run("runtime solve is deterministic and pinned nodes stay on target", asyn
   assert.equal(Number(citation.y.toFixed(6)), Number(citation.targetY.toFixed(6)));
 });
 
-console.log("Passed 4 core runtime checks.");
+await run("runtime exports explainability state and node narratives", async () => {
+  const scene = createFixtureScene();
+  const runtime = createDusRuntime({ seed: 17, iterationsPerFrame: 2 });
+
+  runtime.setScene(scene);
+  runtime.solve(48, 1.0 / 60.0);
+  runtime.setInteractionField({
+    focusNodeId: "claim",
+    selectedNodeId: "risk",
+    queryPulse: 0.8
+  });
+
+  const explainability = runtime.getExplainability();
+  const explainedRisk = runtime.explainNode("risk");
+
+  assert.ok(explainability);
+  assert.equal(explainability.scene.nodeCount, scene.nodes.length);
+  assert.equal(explainability.scene.selectedNodeId, "risk");
+  assert.equal(explainability.scene.focusedNodeId, "claim");
+  assert.ok(Array.isArray(explainability.scene.activeConstraintPressure));
+  assert.ok(explainability.scene.topUnstableNodes.length > 0);
+  assert.ok(explainedRisk);
+  assert.equal(explainedRisk.id, "risk");
+  assert.equal(explainedRisk.role, "contradiction");
+  assert.equal(explainedRisk.rankedLosses.length, 6);
+  assert.ok(explainedRisk.narrative.includes("node"));
+});
+
+console.log("Passed 5 core runtime checks.");

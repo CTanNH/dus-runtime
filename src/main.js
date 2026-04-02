@@ -499,6 +499,7 @@ async function main() {
 
     const layout = runtime.getLayout();
     const debugState = runtime.getDebugState();
+    const explainability = runtime.getExplainability();
 
     renderer.render(layout, scene, debugState, {
       time: now,
@@ -519,6 +520,7 @@ async function main() {
       scene,
       layout,
       debugState,
+      explainability,
       interactionField: interaction
     });
 

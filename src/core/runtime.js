@@ -2,6 +2,7 @@ import { buildScaffold } from "./scaffold.js";
 import { createHybridSolver } from "./solver.js";
 import { cloneScene, poseToRect, rectContainsPoint } from "./utils.js";
 import { formatSceneDiagnostics, normalizeSceneContract } from "./contracts.js";
+import { createExplainabilityState, explainNodeById } from "./explainability.js";
 
 function normalizeScene(scene) {
   const normalized = normalizeSceneContract(scene);
@@ -57,6 +58,7 @@ export function createDusRuntime(config = {}) {
   let solverState = null;
   let layout = { nodePoses: [], visibility: new Map(), debugLosses: [], debugConstraintState: [] };
   let debugState = { totals: {}, convergenceTrace: [], nodes: [], activeConstraints: [], sceneDiagnostics };
+  let explainability = createExplainabilityState(scene, layout, debugState, sceneDiagnostics, {});
   let interactionField = {
     cursorX: 0.0,
     cursorY: 0.0,
@@ -68,16 +70,21 @@ export function createDusRuntime(config = {}) {
   };
   let hostBridge = null;
 
+  function refreshExplainability() {
+    explainability = createExplainabilityState(scene, layout, debugState, sceneDiagnostics, interactionField);
+  }
+
   function publish() {
     layout = materializeLayout(scene, solverState);
     debugState = {
       ...(solverState.debugState ?? debugState),
       sceneDiagnostics
     };
+    refreshExplainability();
     if (hostBridge?.update) {
-      hostBridge.update({ scene, layout, debugState, interactionField });
+      hostBridge.update({ scene, layout, debugState, explainability, interactionField });
     } else if (hostBridge?.mount) {
-      hostBridge.mount({ scene, layout, debugState, interactionField });
+      hostBridge.mount({ scene, layout, debugState, explainability, interactionField });
     }
   }
 
@@ -131,6 +138,14 @@ export function createDusRuntime(config = {}) {
       return sceneDiagnostics;
     },
 
+    getExplainability() {
+      return explainability;
+    },
+
+    explainNode(nodeId) {
+      return explainNodeById(explainability, nodeId);
+    },
+
     hitTest(point) {
       const poses = layout.nodePoses.slice().sort((left, right) => {
         const selectedDelta = (right.id === interactionField.selectedNodeId ? 1 : 0) - (left.id === interactionField.selectedNodeId ? 1 : 0);
@@ -148,7 +163,8 @@ export function createDusRuntime(config = {}) {
     bindHostBridge(bridge) {
       hostBridge = bridge;
       if (hostBridge?.mount) {
-        hostBridge.mount({ scene, layout, debugState, interactionField });
+        refreshExplainability();
+        hostBridge.mount({ scene, layout, debugState, explainability, interactionField });
       }
     },
 
@@ -157,8 +173,9 @@ export function createDusRuntime(config = {}) {
         ...interactionField,
         ...nextField
       };
+      refreshExplainability();
       if (hostBridge?.update) {
-        hostBridge.update({ scene, layout, debugState, interactionField });
+        hostBridge.update({ scene, layout, debugState, explainability, interactionField });
       }
     }
   };

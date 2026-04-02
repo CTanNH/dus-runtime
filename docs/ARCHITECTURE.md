@@ -126,6 +126,27 @@ Solver state is materialized into:
 
 This is the contract between the headless runtime and any surface adapter.
 
+### 5. Explainability export
+
+`src/core/explainability.js`
+
+Explainability is now generated as a runtime surface, not only as a visual overlay.
+
+The runtime exposes:
+
+- `getExplainability()`
+- `explainNode(nodeId)`
+
+That export packages:
+
+- scene-level totals, convergence tail, and unstable-node summaries
+- per-node ranked losses
+- active constraints
+- nearby-neighbor and relation summaries
+- compact node narratives
+
+This matters because a loss-driven interface runtime will not be trusted if it only solves and never explains why it solved that way.
+
 ## Surface Adapters
 
 ## WebGPU renderer
@@ -181,6 +202,8 @@ Current debug surface already exposes:
 - per-node loss breakdown
 - active constraints
 - selected node motion
+
+The important shift is that explainability is no longer trapped inside the DOM overlay. It now exists as runtime data that adapters and tests can consume.
 
 Future explainability work should include:
 

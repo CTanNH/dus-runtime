@@ -100,6 +100,8 @@ The headless runtime is exposed through `createDusRuntime(config)` and returns a
 - `getLayout()`
 - `getDebugState()`
 - `getSceneDiagnostics()`
+- `getExplainability()`
+- `explainNode(nodeId)`
 - `hitTest(point)`
 - `bindHostBridge(bridge)`
 - `setInteractionField(field)`
@@ -113,6 +115,14 @@ The runtime consumes scenes made of:
 - `interactionField`
 
 and produces solved poses plus explainability data.
+
+The explainability surface is now a first-class runtime export rather than only an overlay concern. It reports:
+
+- scene-level convergence and instability summaries
+- per-node dominant losses and ranked loss vectors
+- active constraints and nearby neighbors
+- relation summaries
+- a compact narrative for "why is this node here?"
 
 Before solving, scenes are normalized through a contract layer:
 

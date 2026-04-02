@@ -177,7 +177,14 @@ export function createDomHostBridge(options) {
       const selectedDebug = selectionId
         ? viewModel.debugState.nodes.find((node) => node.id === selectionId)
         : null;
+      const selectedExplainability = selectionId
+        ? viewModel.explainability?.nodes?.find((node) => node.id === selectionId)
+        : null;
       const totals = viewModel.debugState.totals ?? {};
+      const unstableSummary = (viewModel.explainability?.scene?.topUnstableNodes ?? [])
+        .slice(0, 3)
+        .map((node) => `${node.id}:${node.dominantLoss.key}`)
+        .join(" · ");
 
       inspector.textContent = [
         `DUS runtime`,
@@ -188,6 +195,7 @@ export function createDomHostBridge(options) {
         `nodes     ${viewModel.layout.nodePoses.length}`,
         `loss      ${Number(totals.total ?? 0).toFixed(3)}`,
         `trace     ${makeSparkline(viewModel.debugState.convergenceTrace ?? [])}`,
+        unstableSummary ? `unstable  ${unstableSummary}` : null,
         "",
         `shortcuts`,
         `1 plain · 2 field · 3 debug · b benchmark · c baseline · k workspace`,
@@ -205,7 +213,8 @@ export function createDomHostBridge(options) {
               `focus     ${selected.focusInfluence.toFixed(2)}`,
               `motion    ${selected.motionX.toFixed(3)}, ${selected.motionY.toFixed(3)}`,
               `losses    target ${selectedDebug.losses.target.toFixed(3)} | overlap ${selectedDebug.losses.overlap.toFixed(3)} | relation ${selectedDebug.losses.relation.toFixed(3)} | order ${selectedDebug.losses.order.toFixed(3)} | focus ${selectedDebug.losses.focus.toFixed(3)}`,
-              `constraints ${selectedDebug.activeConstraints.join(", ")}`
+              `constraints ${selectedDebug.activeConstraints.join(", ")}`,
+              selectedExplainability ? `why       ${selectedExplainability.narrative}` : null
             ].join("\n")
           : "selected  none"
       ].join("\n");
