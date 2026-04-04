@@ -148,6 +148,13 @@ The repo now ships a packet fixture catalog, not just one sample payload. Knowle
 
 Packet diagnostics are preserved through ingest metadata so the runtime can surface what was dropped or normalized instead of hiding that work.
 
+Knowledge packets now carry a formal schema identity at ingest time:
+
+- `schemaId = dus-knowledge-packet`
+- `schemaVersion = 1`
+
+Offline validation reports packet-level errors separately from scene-contract errors, so future external adapters have a real compatibility boundary instead of a best-effort JSON convention.
+
 Task-oriented scenes can also expose benchmark runs through scene metadata. The runtime demos now use that layer to:
 
 - start named task runs

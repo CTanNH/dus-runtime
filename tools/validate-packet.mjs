@@ -13,13 +13,16 @@ async function main() {
   async function validatePacket(packet, source) {
     const built = buildKnowledgeSceneFromPacket(packet, assetProvider, { source });
     return {
-      ok: built.sceneDiagnostics.errors.length === 0,
+      ok: built.packetDiagnostics.errors.length === 0 && built.sceneDiagnostics.errors.length === 0,
       input: source.href ?? source.label,
       label: source.label,
+      schemaId: built.packet.metadata?.schemaId ?? null,
+      schemaVersion: built.packet.metadata?.schemaVersion ?? null,
       textEntries: built.document.text.length,
       imageEntries: built.document.images.length,
       relations: built.document.relations.length,
       sceneNodes: built.scene.nodes.length,
+      packetErrors: built.packetDiagnostics.errors,
       packetWarnings: built.packetDiagnostics.warnings,
       errors: built.sceneDiagnostics.errors,
       warnings: built.sceneDiagnostics.warnings
@@ -66,10 +69,13 @@ async function main() {
     ok: true,
     input: result.input,
     label: result.label,
+    schemaId: result.schemaId,
+    schemaVersion: result.schemaVersion,
     textEntries: result.textEntries,
     imageEntries: result.imageEntries,
     relations: result.relations,
     sceneNodes: result.sceneNodes,
+    packetErrors: result.packetErrors,
     packetWarnings: result.packetWarnings,
     warnings: result.warnings
   }, null, 2));

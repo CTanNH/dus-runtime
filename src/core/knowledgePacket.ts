@@ -1,3 +1,6 @@
+export const KNOWLEDGE_PACKET_SCHEMA_ID = "dus-knowledge-packet";
+export const KNOWLEDGE_PACKET_SCHEMA_VERSION = 1;
+
 function pushUniqueRelation(relations, relation) {
   const key = `${relation.from}:${relation.to}:${relation.type}:${relation.idealDistance ?? ""}`;
   if (!relations.some((entry) => `${entry.from}:${entry.to}:${entry.type}:${entry.idealDistance ?? ""}` === key)) {
@@ -13,8 +16,39 @@ function warnPacket(diagnostics, path, message) {
   diagnostics.warnings.push({ path, message });
 }
 
+function errorPacket(diagnostics, path, message) {
+  diagnostics.errors.push({ path, message });
+}
+
 function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizePacketMetadata(metadata, diagnostics) {
+  const next = { ...(metadata ?? {}) };
+  const schemaId = trimString(next.schemaId) || KNOWLEDGE_PACKET_SCHEMA_ID;
+  const rawSchemaVersion = next.schemaVersion ?? KNOWLEDGE_PACKET_SCHEMA_VERSION;
+  const schemaVersion = Number(rawSchemaVersion);
+
+  if (schemaId !== KNOWLEDGE_PACKET_SCHEMA_ID) {
+    errorPacket(diagnostics, "metadata.schemaId", `Unsupported packet schema "${schemaId}". Expected "${KNOWLEDGE_PACKET_SCHEMA_ID}".`);
+  }
+
+  if (!Number.isInteger(schemaVersion) || schemaVersion <= 0) {
+    errorPacket(diagnostics, "metadata.schemaVersion", "Packet schemaVersion must be a positive integer.");
+  } else if (schemaVersion !== KNOWLEDGE_PACKET_SCHEMA_VERSION) {
+    errorPacket(
+      diagnostics,
+      "metadata.schemaVersion",
+      `Unsupported packet schemaVersion "${schemaVersion}". Expected "${KNOWLEDGE_PACKET_SCHEMA_VERSION}".`
+    );
+  }
+
+  next.schemaId = schemaId;
+  next.schemaVersion = Number.isInteger(schemaVersion) && schemaVersion > 0
+    ? schemaVersion
+    : KNOWLEDGE_PACKET_SCHEMA_VERSION;
+  return next;
 }
 
 function normalizeEntry(listName, item, index, options, diagnostics) {
@@ -55,7 +89,7 @@ function filterTargetIds(ids, knownIds, diagnostics, path) {
 export function normalizeKnowledgePacket(packet) {
   const diagnostics = createPacketDiagnostics();
   const normalized = {
-    metadata: { ...(packet?.metadata ?? {}) },
+    metadata: normalizePacketMetadata(packet?.metadata, diagnostics),
     claim: packet?.claim ? { ...packet.claim } : null,
     answerBlocks: [],
     evidence: [],
@@ -161,10 +195,14 @@ export function normalizeKnowledgePacket(packet) {
 
 function createPacketSummary(packet, diagnostics, source) {
   return {
+    schemaId: packet.metadata?.schemaId ?? KNOWLEDGE_PACKET_SCHEMA_ID,
+    schemaVersion: packet.metadata?.schemaVersion ?? KNOWLEDGE_PACKET_SCHEMA_VERSION,
     sourceId: source?.id ?? null,
     sourceLabel: source?.label ?? null,
     sourceKind: source?.type ?? "packet",
     sourceHref: source?.href ?? null,
+    errorCount: diagnostics.errors.length,
+    errors: diagnostics.errors.slice(0, 6).map((entry) => ({ ...entry })),
     warningCount: diagnostics.warnings.length,
     warnings: diagnostics.warnings.slice(0, 6).map((entry) => ({ ...entry })),
     counts: {
@@ -190,6 +228,8 @@ function createMetadata(packet, diagnostics, source) {
     watchFor: [...(packet.metadata?.watchFor ?? [])],
     guideSteps: [...(packet.metadata?.guideSteps ?? [])],
     tasks: [...(packet.metadata?.tasks ?? [])],
+    schemaId: packet.metadata?.schemaId ?? KNOWLEDGE_PACKET_SCHEMA_ID,
+    schemaVersion: packet.metadata?.schemaVersion ?? KNOWLEDGE_PACKET_SCHEMA_VERSION,
     packet: createPacketSummary(packet, diagnostics, source)
   };
 }

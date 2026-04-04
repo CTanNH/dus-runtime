@@ -26,12 +26,16 @@ export async function buildKnowledgeWorkspaceScene(assetProvider) {
     metadata: {
       ...(built.scene.metadata ?? {}),
       packet: {
+        schemaId: built.packet.metadata?.schemaId,
+        schemaVersion: built.packet.metadata?.schemaVersion,
         sourceId: selection.id,
         title: selection.title,
         sourceLabel: selection.sourceLabel,
         description: selection.description,
         sourceKind: selection.type,
         builtin: selection.kind === "builtin",
+        errorCount: built.packetDiagnostics.errors.length,
+        errors: built.packetDiagnostics.errors.slice(0, 4),
         warningCount: built.packetDiagnostics.warnings.length,
         warnings: built.packetDiagnostics.warnings.slice(0, 4),
         counts: {

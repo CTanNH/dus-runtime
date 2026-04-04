@@ -7,7 +7,12 @@ import { createBenchmarkHarness } from "../src/core/benchmark.js";
 import { createFixtureScene } from "../src/core/fixtures.js";
 import { buildKnowledgeSceneFromDocument } from "../src/core/ingest.js";
 import { buildKnowledgeSceneFromPacket } from "../src/core/knowledgeScene.js";
-import { buildKnowledgeDocumentFromPacket, normalizeKnowledgePacket } from "../src/core/knowledgePacket.js";
+import {
+  buildKnowledgeDocumentFromPacket,
+  KNOWLEDGE_PACKET_SCHEMA_ID,
+  KNOWLEDGE_PACKET_SCHEMA_VERSION,
+  normalizeKnowledgePacket
+} from "../src/core/knowledgePacket.js";
 import { buildScaffold } from "../src/core/scaffold.js";
 import { createRuntimeSnapshot, normalizeRuntimeSnapshot } from "../src/core/snapshot.js";
 import { createDusRuntime } from "../src/core/runtime.js";
@@ -217,6 +222,23 @@ await run("knowledge packet diagnostics drop malformed items and unknown targets
   assert.equal(normalized.packet.relations.length, 1);
 });
 
+await run("knowledge packet schema defaults are stable and unsupported versions become errors", async () => {
+  const normalizedDefault = normalizeKnowledgePacket({
+    claim: { id: "claim", statement: "Claim" }
+  });
+
+  assert.equal(normalizedDefault.packet.metadata.schemaId, KNOWLEDGE_PACKET_SCHEMA_ID);
+  assert.equal(normalizedDefault.packet.metadata.schemaVersion, KNOWLEDGE_PACKET_SCHEMA_VERSION);
+  assert.equal(normalizedDefault.diagnostics.errors.length, 0);
+
+  const normalizedUnsupported = normalizeKnowledgePacket({
+    metadata: { schemaId: KNOWLEDGE_PACKET_SCHEMA_ID, schemaVersion: 99 },
+    claim: { id: "claim", statement: "Claim" }
+  });
+
+  assert.ok(normalizedUnsupported.diagnostics.errors.some((entry) => entry.path === "metadata.schemaVersion"));
+});
+
 await run("scaffold output is deterministic for a fixed seed", async () => {
   const scene = createFixtureScene();
   const left = buildScaffold(scene, { seed: 17 });
@@ -417,4 +439,4 @@ await run("benchmark harness records comparable task runs", async () => {
   assert.ok(baselineState.tasks[0].comparison.elapsedMs > 0);
 });
 
-console.log("Passed 12 core runtime checks.");
+console.log("Passed 13 core runtime checks.");
