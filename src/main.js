@@ -284,14 +284,24 @@ async function main() {
     window.location.href = url.toString();
   }
 
-  function switchPacket(nextPacketId) {
+  function switchKnowledgeSource(kind, nextId) {
     const url = new URL(window.location.href);
     url.searchParams.set("demo", "knowledge");
     url.searchParams.delete("packet");
-    if (!nextPacketId || nextPacketId === "workspace") {
-      url.searchParams.delete("packetId");
-    } else {
-      url.searchParams.set("packetId", nextPacketId);
+    url.searchParams.delete("packetId");
+    url.searchParams.delete("bundle");
+    url.searchParams.delete("bundleId");
+
+    if (kind === "bundle") {
+      if (nextId && nextId !== "runtime-adoption") {
+        url.searchParams.set("bundleId", nextId);
+      }
+      window.location.href = url.toString();
+      return;
+    }
+
+    if (nextId && nextId !== "workspace") {
+      url.searchParams.set("packetId", nextId);
     }
     window.location.href = url.toString();
   }
@@ -315,7 +325,10 @@ async function main() {
         switchDemo(nextDemoId);
       },
       switchPacket(nextPacketId) {
-        switchPacket(nextPacketId);
+        switchKnowledgeSource("packet", nextPacketId);
+      },
+      switchKnowledgeSource(kind, nextId) {
+        switchKnowledgeSource(kind, nextId);
       },
       focusNode(nodeId) {
         focusNode(nodeId);

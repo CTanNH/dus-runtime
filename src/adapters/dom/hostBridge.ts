@@ -212,8 +212,9 @@ export function createDomHostBridge(options) {
       const guideSteps = demo.guideSteps ?? [];
       const tasks = demo.tasks ?? [];
       const packetInfo = demo.packet ?? {};
-      const packetCatalog = demo.packetCatalog ?? [];
-      const activePacketId = demo.activePacketId ?? packetInfo.sourceId ?? null;
+      const bundleInfo = demo.bundle ?? {};
+      const sourceCatalog = demo.sourceCatalog ?? [];
+      const activeSourceKey = demo.activeSourceKey ?? null;
       const selectionId = viewModel.interactionField.selectedNodeId;
       const selected = selectionId
         ? viewModel.layout.nodePoses.find((pose) => pose.id === selectionId)
@@ -254,7 +255,7 @@ export function createDomHostBridge(options) {
         packetWarnings: packetInfo.warningCount ?? 0,
         steps: guideSteps.map((step) => ({ id: step.id, label: step.label, nodeId: step.nodeId })),
         tasks: tasks.map((task) => ({ id: task.id, title: task.title, nodeIds: task.nodeIds })),
-        packets: packetCatalog.map((packet) => ({ id: packet.id, label: packet.label }))
+        sources: sourceCatalog.map((source) => ({ key: source.key, label: source.label }))
       });
 
       if (nextGuideSignature !== guideSignature) {
@@ -263,11 +264,17 @@ export function createDomHostBridge(options) {
         const packetCounts = packetInfo.counts
           ? `ingest    ans ${packetInfo.counts.answerBlocks} · ev ${packetInfo.counts.evidence} · ctr ${packetInfo.counts.contradictions} · fig ${packetInfo.counts.figures} · cit ${packetInfo.counts.citations} · tok ${packetInfo.counts.tokens}`
           : null;
+        const bundleCounts = bundleInfo.counts
+          ? `bundle    ans ${bundleInfo.counts.answerBlocks} · ev ${bundleInfo.counts.evidence} · issue ${bundleInfo.counts.issues} · fig ${bundleInfo.counts.figures} · tok ${bundleInfo.counts.tokens}`
+          : null;
         guideBodyText.nodeValue = [
           demo.description ?? "",
+          bundleInfo.sourceLabel ? `source    ${bundleInfo.sourceLabel}` : null,
           packetInfo.sourceLabel ? `packet    ${packetInfo.sourceLabel}` : null,
+          bundleCounts,
           packetCounts,
           typeof packetInfo.warningCount === "number" ? `warnings  ${packetInfo.warningCount}` : null,
+          typeof bundleInfo.warningCount === "number" ? `bundle-warn ${bundleInfo.warningCount}` : null,
           "",
           "watch for",
           ...(demo.watchFor ?? []).map((item) => `- ${item}`)
@@ -290,16 +297,22 @@ export function createDomHostBridge(options) {
 
         packetList.replaceChildren();
         packetButtons = [];
-        if (packetCatalog.length > 0 && options.actions.switchPacket) {
-          for (const packet of packetCatalog) {
-            const button = createButton(packet.label, () => options.actions.switchPacket(packet.id));
-            button.dataset.packetId = packet.id;
+        if (sourceCatalog.length > 0 && (options.actions.switchKnowledgeSource || options.actions.switchPacket)) {
+          for (const source of sourceCatalog) {
+            const button = createButton(source.label, () => {
+              if (options.actions.switchKnowledgeSource) {
+                options.actions.switchKnowledgeSource(source.kind, source.id);
+                return;
+              }
+              options.actions.switchPacket?.(source.id);
+            });
+            button.dataset.sourceKey = source.key;
             button.style.justifyContent = "flex-start";
             button.style.textAlign = "left";
             button.style.width = "100%";
             button.style.borderRadius = "14px";
             button.style.padding = "8px 10px";
-            button.textContent = `Packet — ${packet.label}`;
+            button.textContent = source.label;
             packetList.append(button);
             packetButtons.push(button);
           }
@@ -345,7 +358,7 @@ export function createDomHostBridge(options) {
       }
 
       for (const button of packetButtons) {
-        const isActive = button.dataset.packetId === activePacketId;
+        const isActive = button.dataset.sourceKey === activeSourceKey;
         button.style.opacity = isActive ? "1" : "0.74";
         button.style.borderColor = isActive
           ? "rgba(151,196,255,0.46)"
@@ -357,11 +370,16 @@ export function createDomHostBridge(options) {
           `DUS runtime`,
           `demo      ${demo.title ?? demo.demoId ?? "scene"}`,
           demo.subtitle ? `intent    ${demo.subtitle}` : null,
+          bundleInfo.sourceLabel ? `source    ${bundleInfo.sourceLabel}` : null,
           packetInfo.sourceLabel ? `packet    ${packetInfo.sourceLabel}` : null,
+          bundleInfo.counts
+            ? `bundle    ans ${bundleInfo.counts.answerBlocks} · ev ${bundleInfo.counts.evidence} · issue ${bundleInfo.counts.issues} · fig ${bundleInfo.counts.figures} · tok ${bundleInfo.counts.tokens}`
+            : null,
           packetInfo.counts
             ? `ingest    ans ${packetInfo.counts.answerBlocks} · ev ${packetInfo.counts.evidence} · ctr ${packetInfo.counts.contradictions} · fig ${packetInfo.counts.figures} · cit ${packetInfo.counts.citations} · tok ${packetInfo.counts.tokens}`
             : null,
           typeof packetInfo.warningCount === "number" ? `warnings  ${packetInfo.warningCount}` : null,
+          typeof bundleInfo.warningCount === "number" ? `bundle-warn ${bundleInfo.warningCount}` : null,
           `view      ${options.getViewPreset()}`,
           `paused    ${options.getPaused() ? "yes" : "no"}`,
           `nodes     ${viewModel.layout.nodePoses.length}`,

@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { getKnowledgeBundleFixtureById } from "../src/app/knowledgeBundles.js";
 import { getKnowledgePacketFixtureById } from "../src/app/knowledgePackets.js";
 import { createFixtureScene } from "../src/core/fixtures.js";
-import { buildKnowledgeSceneFromPacket, createKnowledgePacketValidationAssetProvider } from "../src/core/knowledgeScene.js";
+import { buildKnowledgeSceneFromBundle, buildKnowledgeSceneFromPacket, createKnowledgePacketValidationAssetProvider } from "../src/core/knowledgeScene.js";
 import { createDusRuntime } from "../src/core/runtime.js";
 
 const ROOT = process.cwd();
@@ -106,6 +107,45 @@ async function loadPacketInput(input, assetProvider) {
   };
 }
 
+async function loadBundleInput(input, assetProvider) {
+  const fixture = getKnowledgeBundleFixtureById(input.replace(/^bundle:/, ""));
+  const source = fixture
+    ? {
+        kind: "bundle-fixture",
+        id: fixture.id,
+        label: fixture.label,
+        href: fixture.href
+      }
+    : {
+        kind: "bundle-file",
+        id: null,
+        label: input === "bundle:default" ? "runtime-adoption" : path.basename(input.replace(/^bundle:/, "")),
+        href: input === "bundle:default"
+          ? path.join(ROOT, "src", "app", "bundles", "runtime-adoption.bundle.json")
+          : path.resolve(input.replace(/^bundle:/, ""))
+      };
+
+  const raw = await fs.readFile(fixture ? new URL(fixture.href) : source.href, "utf8");
+  const built = buildKnowledgeSceneFromBundle(JSON.parse(raw), assetProvider, {
+    source: {
+      id: source.id,
+      label: source.label,
+      type: source.kind,
+      href: fixture ? fixture.href : source.href
+    }
+  });
+
+  return {
+    scene: built.scene,
+    reportSource: source,
+    extra: {
+      bundleDiagnostics: built.bundleDiagnostics,
+      packetDiagnostics: built.packetDiagnostics,
+      sceneDiagnostics: built.sceneDiagnostics
+    }
+  };
+}
+
 async function buildRuntimeReport(input, options) {
   if (input === "fixture:core") {
     const runtime = createDusRuntime({ seed: 17, iterationsPerFrame: 2 });
@@ -118,6 +158,19 @@ async function buildRuntimeReport(input, options) {
   }
 
   const assetProvider = createKnowledgePacketValidationAssetProvider();
+  if (input.startsWith("bundle:") || getKnowledgeBundleFixtureById(input) || input.endsWith(".bundle.json")) {
+    const loaded = await loadBundleInput(input, assetProvider);
+    const runtime = createDusRuntime({ seed: 11, iterationsPerFrame: 2 });
+    runtime.setScene(loaded.scene);
+    runtime.solve(options.iterations, options.dt);
+
+    return createReportEnvelope(
+      runtime.getSnapshot({ precision: options.precision }),
+      loaded.reportSource,
+      loaded.extra
+    );
+  }
+
   const loaded = await loadPacketInput(input, assetProvider);
   const runtime = createDusRuntime({ seed: 11, iterationsPerFrame: 2 });
   runtime.setScene(loaded.scene);

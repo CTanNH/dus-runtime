@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "title": "Retrieval trace bundle",
+    "subtitle": "Bundle fixture stressing evidence provenance",
+    "description": "A bundle shaped more like retrieval output than a hand-authored UI packet.",
+    "watchFor": [
+      "Evidence entries should produce both support nodes and citation nodes.",
+      "Low-confidence answer phrases should survive as tokens instead of disappearing into prose.",
+      "Figures should attach through evidence links without manual packet relations."
+    ]
+  },
+  "query": {
+    "text": "Why do retrieval-heavy AI interfaces need something beyond card stacks?"
+  },
+  "answer": {
+    "title": "Retrieval surfaces need more than cards",
+    "statement": "When evidence, provenance, and uncertainty all need to remain co-visible, a simple stack of rigid cards starts flattening the semantics.",
+    "confidence": 0.79,
+    "body": "A retrieval-heavy interface has to keep citations, contradictions, and images in view without hiding the answer itself.\n\nA solver-driven surface can negotiate those relationships directly instead of forcing everything through one reading column.",
+    "lowConfidencePhrases": [
+      {
+        "text": "without hiding the answer itself",
+        "confidence": 0.41
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "excerpt": "Citation-bearing evidence needs to stay near the answer while still preserving enough separation to inspect source quality.",
+      "confidence": 0.84,
+      "source": {
+        "label": "Retrieval note A"
+      }
+    },
+    {
+      "excerpt": "Images often belong to the evidence chain rather than to the answer text, but box stacks usually force them into detached side panels.",
+      "confidence": 0.77,
+      "source": {
+        "label": "Retrieval note B"
+      },
+      "figureId": "figure-sidecar"
+    }
+  ],
+  "issues": [
+    {
+      "text": "If relation strength is weak, evidence clusters can still collapse into a confusing pile.",
+      "confidence": 0.35
+    }
+  ],
+  "figures": [
+    {
+      "id": "figure-sidecar",
+      "imageId": "citation-lattice",
+      "caption": "Citation lattice"
+    }
+  ]
+}

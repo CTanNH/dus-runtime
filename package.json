@@ -20,6 +20,8 @@
     "test:browser": "node ./tools/assert-validation.mjs",
     "validate:packet": "node ./tools/validate-packet.mjs",
     "validate:packets": "node ./tools/validate-packet.mjs --all",
+    "validate:bundle": "node ./tools/validate-bundle.mjs",
+    "validate:bundles": "node ./tools/validate-bundle.mjs --all",
     "export:report": "node ./tools/export-runtime-report.mjs",
     "compare:benchmarks": "node ./tools/compare-benchmark-reports.mjs",
     "serve": "npx serve . -l 8000",

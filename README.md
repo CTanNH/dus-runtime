@@ -242,9 +242,12 @@ The knowledge workspace can also load an alternate packet at runtime:
 http://127.0.0.1:8000/?demo=knowledge&packetId=incident-triage
 http://127.0.0.1:8000/?demo=knowledge&packetId=model-comparison
 http://127.0.0.1:8000/?demo=knowledge&packet=/absolute-or-relative-packet.json
+http://127.0.0.1:8000/?demo=knowledge&bundleId=runtime-adoption
+http://127.0.0.1:8000/?demo=knowledge&bundleId=retrieval-trace
+http://127.0.0.1:8000/?demo=knowledge&bundle=/absolute-or-relative-bundle.json
 ```
 
-Use `packetId` for built-in fixtures and `packet` for a custom file or URL override.
+Use `packetId` for built-in packet fixtures, `packet` for a custom packet override, `bundleId` for built-in upstream bundle fixtures, and `bundle` for a custom bundle override.
 
 Validate a packet offline before opening it in the browser:
 
@@ -260,12 +263,27 @@ cd D:\Projects\DUS
 npm run validate:packets
 ```
 
+Validate an upstream knowledge bundle before it is adapted into a DUS packet:
+
+```powershell
+cd D:\Projects\DUS
+npm run validate:bundle -- .\src\app\bundles\runtime-adoption.bundle.json
+```
+
+Validate every bundled bundle fixture:
+
+```powershell
+cd D:\Projects\DUS
+npm run validate:bundles
+```
+
 Export a deterministic runtime report for a packet or the core fixture:
 
 ```powershell
 cd D:\Projects\DUS
 npm run export:report -- workspace
 npm run export:report -- incident-triage --out .\artifacts\incident-triage.report.json
+npm run export:report -- bundle:runtime-adoption --out .\artifacts\runtime-adoption.report.json
 npm run export:report -- fixture:core
 ```
 

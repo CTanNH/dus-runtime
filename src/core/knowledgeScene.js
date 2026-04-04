@@ -1,4 +1,5 @@
 import { normalizeSceneContract } from "./contracts.js";
+import { buildKnowledgePacketFromBundle } from "./knowledgeBundle.js";
 import { buildKnowledgeSceneFromDocument } from "./ingest.js";
 import { buildKnowledgeDocumentFromPacket, normalizeKnowledgePacket } from "./knowledgePacket.js";
 
@@ -40,5 +41,20 @@ export function buildKnowledgeSceneFromPacket(packet, assetProvider, options = {
     document,
     scene,
     sceneDiagnostics: normalizedScene.diagnostics
+  };
+}
+
+export function buildKnowledgeSceneFromBundle(bundle, assetProvider, options = {}) {
+  const builtPacket = buildKnowledgePacketFromBundle(bundle, options);
+  const builtScene = buildKnowledgeSceneFromPacket(builtPacket.packet, assetProvider, options);
+
+  return {
+    bundle: builtPacket.bundle,
+    bundleDiagnostics: builtPacket.bundleDiagnostics,
+    packet: builtScene.packet,
+    packetDiagnostics: builtScene.packetDiagnostics,
+    document: builtScene.document,
+    scene: builtScene.scene,
+    sceneDiagnostics: builtScene.sceneDiagnostics
   };
 }

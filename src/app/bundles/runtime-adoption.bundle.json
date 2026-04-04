@@ -1,0 +1,99 @@
+{
+  "metadata": {
+    "title": "Runtime adoption bundle",
+    "subtitle": "Upstream AI synthesis bundle",
+    "description": "A less-DUS-specific bundle that should still compile into a readable knowledge surface.",
+    "watchFor": [
+      "The answer should become the stable claim while evidence and issues orbit it.",
+      "Evidence sources should auto-generate citations instead of requiring hand-authored packet nodes.",
+      "Low-confidence phrases should remain visible as softer tokens tied to the answer."
+    ],
+    "guideSteps": [
+      { "id": "claim", "label": "Main synthesis", "nodeId": "answer-loss-driven-ui-runtimes-only-matter-if-th" },
+      { "id": "evidence", "label": "Grounding evidence", "nodeId": "evidence-browser-validation-keeps-the-runtime-f" },
+      { "id": "issue", "label": "Adoption risk", "nodeId": "issue-if-plain-mode-still-reads-like-a-demo-the" }
+    ],
+    "tasks": [
+      {
+        "id": "trace-support",
+        "benchmarkId": "trace-support",
+        "title": "Trace support for the synthesis",
+        "prompt": "Follow the answer to its strongest evidence and auto-generated citation.",
+        "nodeIds": [
+          "answer-loss-driven-ui-runtimes-only-matter-if-th",
+          "evidence-browser-validation-keeps-the-runtime-f",
+          "citation-evidence-browser-validation-keeps-the-runtime-f"
+        ]
+      }
+    ]
+  },
+  "query": {
+    "text": "What must a loss-driven UI runtime prove before adoption?"
+  },
+  "answer": {
+    "title": "Loss-driven UI runtimes only matter if they prove advantage",
+    "statement": "A semantic layout runtime will not be adopted on novelty alone; it needs measurable task advantage, readable fallback surfaces, and trustworthy ingest from AI systems.",
+    "confidence": 0.83,
+    "body": "The runtime has to show that semantic layout solves a problem that rigid box stacks handle badly.\n\nThat proof depends on benchmarkable tasks, explainability, and a renderer path that stays legible when the more experimental field surface is disabled.",
+    "lowConfidencePhrases": [
+      {
+        "text": "readable fallback surfaces",
+        "confidence": 0.34
+      },
+      {
+        "text": "trustworthy ingest from AI systems",
+        "confidence": 0.28
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "title": "Browser validation",
+      "excerpt": "Browser validation currently reports stable node counts and roughly 240 fps while the renderer runs in plain mode.",
+      "confidence": 0.9,
+      "source": {
+        "label": "Validation report"
+      },
+      "figureId": "figure-validation"
+    },
+    {
+      "title": "Benchmark export pipeline",
+      "excerpt": "Task runs can now be exported and merged offline, which makes control-vs-runtime comparisons auditable instead of anecdotal.",
+      "confidence": 0.86,
+      "source": {
+        "label": "Benchmark export tooling"
+      }
+    },
+    {
+      "title": "Packet ingest seam",
+      "excerpt": "The runtime already accepts normalized knowledge packets with diagnostics, which proves that the core can separate input adaptation from solving.",
+      "confidence": 0.78,
+      "source": {
+        "label": "Packet ingest diagnostics"
+      },
+      "figureId": "figure-ingest"
+    }
+  ],
+  "issues": [
+    {
+      "text": "If plain mode still reads like a demo, the runtime will be judged as spectacle rather than infrastructure.",
+      "confidence": 0.31
+    },
+    {
+      "text": "If every upstream source must be hand-authored as a DUS packet, adoption will stall before the runtime reaches real AI workflows.",
+      "confidence": 0.37
+    }
+  ],
+  "figures": [
+    {
+      "id": "figure-validation",
+      "imageId": "retrieval-map",
+      "caption": "Validation surface"
+    },
+    {
+      "id": "figure-ingest",
+      "imageId": "evidence-flow",
+      "caption": "Ingest flow"
+    }
+  ]
+}

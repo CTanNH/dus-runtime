@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
+import { getKnowledgeBundleFixtureById, listKnowledgeBundleFixtures } from "../src/app/knowledgeBundles.js";
 import { KNOWLEDGE_PACKET_SPECS } from "../src/app/knowledgePackets.js";
 import { normalizeSceneContract } from "../src/core/contracts.js";
 import { createBenchmarkHarness, createBenchmarkReport } from "../src/core/benchmark.js";
+import {
+  buildKnowledgePacketFromBundle,
+  KNOWLEDGE_BUNDLE_SCHEMA_ID,
+  KNOWLEDGE_BUNDLE_SCHEMA_VERSION,
+  normalizeKnowledgeBundle
+} from "../src/core/knowledgeBundle.js";
 import { createFixtureScene } from "../src/core/fixtures.js";
 import { buildKnowledgeSceneFromDocument } from "../src/core/ingest.js";
-import { buildKnowledgeSceneFromPacket } from "../src/core/knowledgeScene.js";
+import { buildKnowledgeSceneFromBundle, buildKnowledgeSceneFromPacket } from "../src/core/knowledgeScene.js";
 import {
   buildKnowledgeDocumentFromPacket,
   KNOWLEDGE_PACKET_SCHEMA_ID,
@@ -237,6 +244,64 @@ await run("knowledge packet schema defaults are stable and unsupported versions 
   });
 
   assert.ok(normalizedUnsupported.diagnostics.errors.some((entry) => entry.path === "metadata.schemaVersion"));
+});
+
+await run("knowledge bundle normalizes upstream output into a valid packet seam", async () => {
+  const normalized = normalizeKnowledgeBundle({
+    answer: {
+      title: "Bundle answer",
+      statement: "A bundle should not need packet-shaped ids.",
+      body: "Paragraph one.\n\nParagraph two.",
+      lowConfidencePhrases: [{ text: "packet-shaped ids" }]
+    },
+    evidence: [
+      {
+        excerpt: "Evidence item.",
+        source: { label: "Source A" }
+      }
+    ],
+    issues: [
+      {
+        text: "Risk item."
+      }
+    ],
+    figures: [
+      {
+        imageId: "retrieval-map"
+      }
+    ]
+  });
+
+  assert.equal(normalized.bundle.metadata.schemaId, KNOWLEDGE_BUNDLE_SCHEMA_ID);
+  assert.equal(normalized.bundle.metadata.schemaVersion, KNOWLEDGE_BUNDLE_SCHEMA_VERSION);
+  assert.ok(normalized.bundle.answer.id.startsWith("answer-"));
+  assert.equal(normalized.bundle.answer.blocks.length, 2);
+  assert.equal(normalized.bundle.answer.lowConfidencePhrases.length, 1);
+
+  const built = buildKnowledgePacketFromBundle(normalized.bundle);
+  assert.equal(built.bundleDiagnostics.errors.length, 0);
+  assert.equal(built.packetDiagnostics.errors.length, 0);
+  assert.equal(built.packet.citations.length, 1);
+  assert.equal(built.packet.tokens.length, 1);
+  assert.equal(built.packet.evidence[0].supports.length, 1);
+});
+
+await run("knowledge bundle fixture catalog validates every bundled bundle", async () => {
+  const assetProvider = createValidationAssetProvider();
+  const fixtures = listKnowledgeBundleFixtures({ includeHidden: true });
+  assert.ok(fixtures.length >= 2);
+  assert.equal(new Set(fixtures.map((fixture) => fixture.id)).size, fixtures.length);
+  assert.ok(getKnowledgeBundleFixtureById("runtime-adoption"));
+
+  for (const fixture of fixtures) {
+    const raw = await fs.readFile(new URL(fixture.href), "utf8");
+    const built = buildKnowledgeSceneFromBundle(JSON.parse(raw), assetProvider, { source: fixture });
+    assert.equal(built.bundleDiagnostics.errors.length, 0, fixture.id);
+    assert.equal(built.packetDiagnostics.errors.length, 0, fixture.id);
+    assert.equal(built.sceneDiagnostics.errors.length, 0, fixture.id);
+    assert.ok(built.bundle, fixture.id);
+    assert.equal(built.packet.metadata?.sourceKind, "bundle", fixture.id);
+  }
 });
 
 await run("scaffold output is deterministic for a fixed seed", async () => {
@@ -503,4 +568,4 @@ await run("benchmark report factory summarizes cross-demo runs", async () => {
   assert.equal(comparison.demos[1].bestElapsedMs, 1800);
 });
 
-console.log("Passed 14 core runtime checks.");
+console.log("Passed 16 core runtime checks.");

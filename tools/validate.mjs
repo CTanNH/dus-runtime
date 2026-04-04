@@ -11,6 +11,24 @@ const CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 const NODE_EXE = process.execPath;
 const SERVER_SCRIPT = path.join(ROOT, "tools", "static-server.mjs");
 
+function parseArgs(argv) {
+  const args = {
+    path: "/index.html"
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index];
+    if (value === "--path") {
+      args.path = argv[index + 1] ?? args.path;
+      index += 1;
+    } else if (!value.startsWith("--")) {
+      args.path = value;
+    }
+  }
+
+  return args;
+}
+
 function captureChildOutput(child) {
   const output = { stdout: "", stderr: "" };
   child.stdout?.setEncoding("utf8");
@@ -310,6 +328,7 @@ function formatProcessFailure(name, process, output, fallback) {
 }
 
 async function main() {
+  const args = parseArgs(process.argv.slice(2));
   const artifactsDir = path.join(ROOT, "artifacts");
   await fs.mkdir(artifactsDir, { recursive: true });
   const reportPath = path.join(artifactsDir, "validation-report.json");
@@ -379,7 +398,7 @@ async function main() {
     await cdp.send("Performance.enable");
     await cdp.send("DOM.enable");
 
-    const pageUrl = `${origin}/index.html`;
+    const pageUrl = new URL(args.path, origin).toString();
     await waitForLoad(cdp, pageUrl);
     await waitForCanvas(cdp);
     await waitForAppReady(cdp);
@@ -650,6 +669,7 @@ async function main() {
 
     const report = {
       origin,
+      pageUrl,
       generatedAt: new Date().toISOString(),
       chromePath: CHROME_PATH,
       gpuReport,
