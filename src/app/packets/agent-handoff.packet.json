@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "demoId": "knowledge",
+    "title": "Agent Handoff",
+    "subtitle": "Planner/evaluator transfer packet",
+    "description": "A packet focused on multi-agent handoff: plan, evidence, unresolved risks, and figures share one auditable surface.",
+    "intent": "task",
+    "watchFor": [
+      "The main plan should remain readable while evidence and risks negotiate around it.",
+      "Low-confidence unresolved risks should stay visibly warmer than the planner summary.",
+      "The figure should behave like supporting evidence, not a detached side panel."
+    ],
+    "guideSteps": [
+      { "id": "plan", "label": "Planner output", "nodeId": "answer-plan", "description": "The planner summary is the stable center of this packet." },
+      { "id": "evaluator", "label": "Evaluator evidence", "nodeId": "evidence-eval", "description": "Evaluator output should stay attached to the plan without flattening the rest of the packet." },
+      { "id": "risk", "label": "Unresolved risk", "nodeId": "contradiction-handoff", "description": "This node marks what the next agent still needs to resolve." }
+    ],
+    "tasks": [
+      { "id": "trace-handoff", "title": "Trace the handoff path", "prompt": "Follow plan -> evaluator evidence -> citation and verify the chain stays readable.", "nodeIds": ["answer-plan", "evidence-eval", "citation-plan"], "successNodeIds": ["answer-plan", "evidence-eval", "citation-plan"], "successMode": "all" },
+      { "id": "inspect-risk", "title": "Inspect unresolved risk", "prompt": "Check the unresolved risk and its supporting figure without losing the plan summary.", "nodeIds": ["answer-plan", "contradiction-handoff", "figure-agent-map"], "successNodeIds": ["contradiction-handoff", "figure-agent-map"], "successMode": "all" }
+    ]
+  },
+  "claim": {
+    "title": "Agent Handoff Needs Co-Visible State",
+    "id": "answer-plan",
+    "statement": "Multi-agent systems remain auditable when plan, evidence, and unresolved risk travel together instead of splitting across disconnected panes.",
+    "confidence": 0.91,
+    "importance": 0.94,
+    "stiffness": 0.9,
+    "maxWidth": 4.4,
+    "lineHeight": 0.29
+  },
+  "answerBlocks": [
+    { "id": "answer-summary", "text": "The planner proposes the next action, but the evaluator and risk context must remain nearby so the handoff is inspectable.", "confidence": 0.84, "importance": 0.82, "maxWidth": 4.1, "lineHeight": 0.25 }
+  ],
+  "evidence": [
+    { "id": "evidence-eval", "text": "The evaluator confirms that the proposed action preserves citation coverage and bounded scope.", "confidence": 0.88, "importance": 0.82, "supports": ["answer-plan"], "figures": ["figure-agent-map"] },
+    { "id": "evidence-bridge", "text": "The host bridge can attach annotations and selections without owning the actual layout.", "confidence": 0.8, "importance": 0.7, "supports": ["answer-summary"] },
+    { "id": "evidence-replay", "text": "Deterministic seeds allow the handoff scene to replay the same solved layout for audit.", "confidence": 0.86, "importance": 0.76, "supports": ["answer-plan"] }
+  ],
+  "contradictions": [
+    { "id": "contradiction-handoff", "text": "If the next agent cannot see why a risk stayed nearby, the surface stops being trustworthy.", "confidence": 0.41, "importance": 0.72, "targets": ["answer-summary"], "idealDistance": 2.2 }
+  ],
+  "figures": [
+    { "id": "figure-agent-map", "imageId": "citation-lattice", "confidence": 0.74, "importance": 0.64, "stiffness": 0.42, "figureSide": "left", "targets": ["evidence-eval"] }
+  ],
+  "citations": [
+    { "id": "citation-plan", "label": "[H1] Planner/evaluator trace · seed 21", "confidence": 0.9, "targets": ["evidence-eval"], "weight": 0.78, "idealDistance": 1.1 },
+    { "id": "citation-bridge", "label": "[H2] Overlay audit · detached host bridge", "confidence": 0.79, "targets": ["evidence-bridge"], "weight": 0.7, "idealDistance": 1.15 }
+  ],
+  "tokens": [
+    { "id": "token-audit", "text": "auditable", "confidence": 0.9, "targetId": "answer-plan", "weight": 0.7, "idealDistance": 0.9 },
+    { "id": "token-risk", "text": "unresolved", "confidence": 0.44, "targetId": "contradiction-handoff", "weight": 0.66, "idealDistance": 0.9 }
+  ]
+}

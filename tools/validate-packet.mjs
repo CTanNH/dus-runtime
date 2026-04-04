@@ -1,70 +1,77 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { buildKnowledgeDocumentFromPacket, normalizeKnowledgePacket } from "../src/core/knowledgePacket.js";
-import { buildKnowledgeSceneFromDocument } from "../src/core/ingest.js";
-import { normalizeSceneContract } from "../src/core/contracts.js";
+import { getKnowledgePacketFixtureById, listKnowledgePacketFixtures } from "../src/app/knowledgePackets.js";
+import { buildKnowledgeSceneFromPacket, createKnowledgePacketValidationAssetProvider } from "../src/core/knowledgeScene.js";
 
 const ROOT = process.cwd();
 const DEFAULT_PACKET_PATH = path.join(ROOT, "src", "app", "knowledge-packet.json");
 
-function createValidationAssetProvider() {
-  return {
-    createTextRun(id, text, options = {}) {
-      const lineHeight = options.lineHeight ?? 0.24;
-      const width = Math.max((options.maxWidth ?? 2.0) * 0.82, String(text).length * 0.06);
-      return {
-        id,
-        text,
-        glyphs: [],
-        width,
-        height: lineHeight,
-        paddedWidth: width + (options.paddingX ?? 0.12) * 2.0,
-        paddedHeight: lineHeight + (options.paddingY ?? 0.1) * 2.0,
-        distanceRange: 4.0
-      };
-    },
-    getImage(imageId) {
-      return {
-        id: imageId,
-        aspect: 2.0,
-        uvRect: { u0: 0.0, v0: 0.0, u1: 1.0, v1: 1.0 }
-      };
-    }
-  };
-}
-
 async function main() {
-  const input = process.argv[2] ? path.resolve(process.argv[2]) : DEFAULT_PACKET_PATH;
-  const raw = await fs.readFile(input, "utf8");
-  const packet = JSON.parse(raw);
-  const assetProvider = createValidationAssetProvider();
-  const normalizedPacket = normalizeKnowledgePacket(packet);
-  const document = buildKnowledgeDocumentFromPacket(normalizedPacket.packet);
-  const scene = buildKnowledgeSceneFromDocument(document, assetProvider);
-  const normalized = normalizeSceneContract(scene);
+  const assetProvider = createKnowledgePacketValidationAssetProvider();
 
-  if (normalized.diagnostics.errors.length > 0) {
-    console.error(JSON.stringify({
-      ok: false,
-      input,
-      packetWarnings: normalizedPacket.diagnostics.warnings,
-      errors: normalized.diagnostics.errors,
-      warnings: normalized.diagnostics.warnings
+  async function validatePacket(packet, source) {
+    const built = buildKnowledgeSceneFromPacket(packet, assetProvider, { source });
+    return {
+      ok: built.sceneDiagnostics.errors.length === 0,
+      input: source.href ?? source.label,
+      label: source.label,
+      textEntries: built.document.text.length,
+      imageEntries: built.document.images.length,
+      relations: built.document.relations.length,
+      sceneNodes: built.scene.nodes.length,
+      packetWarnings: built.packetDiagnostics.warnings,
+      errors: built.sceneDiagnostics.errors,
+      warnings: built.sceneDiagnostics.warnings
+    };
+  }
+
+  const input = process.argv[2] ?? "";
+  if (input === "--all") {
+    const fixtures = listKnowledgePacketFixtures({ includeHidden: true });
+    const results = [];
+    for (const fixture of fixtures) {
+      const raw = await fs.readFile(new URL(fixture.href), "utf8");
+      results.push(await validatePacket(JSON.parse(raw), fixture));
+    }
+
+    const ok = results.every((result) => result.ok);
+    console.log(JSON.stringify({
+      ok,
+      fixtures: results
     }, null, 2));
+    if (!ok) process.exitCode = 1;
+    return;
+  }
+
+  const fixture = getKnowledgePacketFixtureById(input);
+  const source = fixture
+    ? fixture
+    : {
+        id: null,
+        label: input ? path.resolve(input) : DEFAULT_PACKET_PATH,
+        href: input ? path.resolve(input) : DEFAULT_PACKET_PATH,
+        type: "file"
+      };
+  const raw = await fs.readFile(fixture ? new URL(fixture.href) : source.href, "utf8");
+  const result = await validatePacket(JSON.parse(raw), source);
+
+  if (!result.ok) {
+    console.error(JSON.stringify(result, null, 2));
     process.exitCode = 1;
     return;
   }
 
   console.log(JSON.stringify({
     ok: true,
-    input,
-    textEntries: document.text.length,
-    imageEntries: document.images.length,
-    relations: document.relations.length,
-    sceneNodes: scene.nodes.length,
-    packetWarnings: normalizedPacket.diagnostics.warnings,
-    warnings: normalized.diagnostics.warnings
+    input: result.input,
+    label: result.label,
+    textEntries: result.textEntries,
+    imageEntries: result.imageEntries,
+    relations: result.relations,
+    sceneNodes: result.sceneNodes,
+    packetWarnings: result.packetWarnings,
+    warnings: result.warnings
   }, null, 2));
 }
 

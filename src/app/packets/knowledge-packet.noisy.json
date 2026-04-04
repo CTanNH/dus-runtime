@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "demoId": "knowledge",
+    "title": "Noisy Ingest Workspace",
+    "subtitle": "Diagnostics fixture",
+    "description": "This packet intentionally contains malformed entries so the ingest layer can prove it is not a blind passthrough.",
+    "intent": "task",
+    "watchFor": [
+      "The scene should still render after malformed entries are dropped.",
+      "Diagnostics should report why broken items disappeared.",
+      "Only the surviving nodes should participate in the solved layout."
+    ],
+    "guideSteps": [
+      { "id": "claim", "label": "Recovered claim", "nodeId": "claim-noisy", "description": "The valid claim that survives packet normalization." }
+    ],
+    "tasks": [
+      { "id": "claim-support", "title": "Trace support for the claim", "prompt": "Confirm that the valid evidence and citation survive normalization.", "nodeIds": ["claim-noisy", "evidence-clean", "citation-clean"], "successNodeIds": ["claim-noisy", "evidence-clean", "citation-clean"], "successMode": "all" }
+    ]
+  },
+  "claim": {
+    "id": "claim-noisy",
+    "statement": "The ingest layer should drop malformed packet items without collapsing the workspace."
+  },
+  "answerBlocks": [
+    { "id": "answer-clean", "text": "Valid answer detail remains in the scene after normalization." },
+    { "id": "", "text": "This answer block should be dropped because it has no id." }
+  ],
+  "evidence": [
+    { "id": "evidence-clean", "text": "Valid evidence survives and supports the claim.", "supports": ["claim-noisy", "missing-node"] },
+    { "id": "evidence-empty", "text": "   ", "supports": ["claim-noisy"] }
+  ],
+  "contradictions": [
+    { "id": "contradiction-clean", "text": "A valid contradiction survives even in a noisy packet.", "targets": ["claim-noisy", "missing-node"] }
+  ],
+  "figures": [
+    { "id": "figure-clean", "imageId": "retrieval-map", "targets": ["evidence-clean", "missing-node"] },
+    { "id": "figure-broken", "imageId": "   ", "targets": ["claim-noisy"] }
+  ],
+  "citations": [
+    { "id": "citation-clean", "label": "[N1] Normalization audit", "targets": ["evidence-clean", "missing-node"] }
+  ],
+  "tokens": [
+    { "id": "token-clean", "text": "normalized", "targetId": "evidence-clean" },
+    { "id": "token-broken", "text": "broken", "targetId": "missing-node" }
+  ],
+  "relations": [
+    { "from": "evidence-clean", "to": "claim-noisy", "type": "supports" },
+    { "from": "evidence-clean", "to": "missing-node", "type": "supports" },
+    { "from": "", "to": "claim-noisy", "type": "supports" }
+  ]
+}

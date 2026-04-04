@@ -3,6 +3,7 @@ import { createHybridSolver } from "./solver.js";
 import { cloneScene, poseToRect, rectContainsPoint } from "./utils.js";
 import { formatSceneDiagnostics, normalizeSceneContract } from "./contracts.js";
 import { createExplainabilityState, explainNodeById } from "./explainability.js";
+import { createRuntimeSnapshot, normalizeRuntimeSnapshot, restoreScaffoldFromSnapshot, restoreSolverStateFromSnapshot } from "./snapshot.js";
 
 function normalizeScene(scene) {
   const normalized = normalizeSceneContract(scene);
@@ -50,6 +51,11 @@ function materializeLayout(scene, solverState) {
 
 export function createDusRuntime(config = {}) {
   const solver = config.solver ?? createHybridSolver(config);
+  const runtimeConfig = {
+    seed: config.seed ?? 1,
+    iterationsPerFrame: config.iterationsPerFrame ?? 1,
+    params: { ...(config.params ?? {}) }
+  };
 
   const initial = normalizeScene({ nodes: [], relations: [], constraints: [] });
   let scene = initial.scene;
@@ -138,8 +144,64 @@ export function createDusRuntime(config = {}) {
       return sceneDiagnostics;
     },
 
+    getScene() {
+      return cloneScene(scene);
+    },
+
+    getInteractionField() {
+      return { ...interactionField };
+    },
+
     getExplainability() {
       return explainability;
+    },
+
+    getSnapshot(options = {}) {
+      return createRuntimeSnapshot({
+        config: runtimeConfig,
+        scene,
+        sceneDiagnostics,
+        scaffold,
+        solverState,
+        interactionField,
+        debugState,
+        explainability
+      }, options);
+    },
+
+    exportSnapshot(options = {}) {
+      return this.getSnapshot(options);
+    },
+
+    importSnapshot(snapshot) {
+      const normalizedSnapshot = normalizeRuntimeSnapshot(snapshot);
+      const normalized = normalizeScene(normalizedSnapshot.scene);
+      if (normalized.diagnostics.errors.length > 0) {
+        throw new Error(`Invalid DUS snapshot scene: ${formatSceneDiagnostics(normalized.diagnostics)}`);
+      }
+
+      scene = normalized.scene;
+      sceneDiagnostics = normalizedSnapshot.sceneDiagnostics.errors.length > 0 || normalizedSnapshot.sceneDiagnostics.warnings.length > 0
+        ? normalizedSnapshot.sceneDiagnostics
+        : normalized.diagnostics;
+      interactionField = {
+        cursorX: 0.0,
+        cursorY: 0.0,
+        cursorVx: 0.0,
+        cursorVy: 0.0,
+        focusNodeId: null,
+        selectedNodeId: null,
+        queryPulse: 0.0,
+        ...(scene.interactionField ?? {}),
+        ...normalizedSnapshot.interactionField
+      };
+      scaffold = restoreScaffoldFromSnapshot(normalizedSnapshot.scaffold)
+        ?? buildScaffold(scene, { seed: normalizedSnapshot.runtime.seed ?? runtimeConfig.seed });
+      solverState = solver.initialize(scene, scaffold);
+      restoreSolverStateFromSnapshot(solverState, normalizedSnapshot);
+      debugState = normalizedSnapshot.debugState;
+      publish();
+      return layout;
     },
 
     explainNode(nodeId) {

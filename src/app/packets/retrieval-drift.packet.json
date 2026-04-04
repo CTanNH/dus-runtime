@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "demoId": "knowledge",
+    "title": "Retrieval Drift",
+    "subtitle": "Grounding failure packet",
+    "description": "A knowledge packet focused on grounding drift: the answer is plausible, but citations and figures start to pull apart.",
+    "intent": "task",
+    "watchFor": [
+      "The answer should stay readable while low-confidence evidence and contradictions compete around it.",
+      "Citation-linked evidence should cluster, but the weakest citation should visibly destabilize its neighborhood.",
+      "The same packet should remain understandable in plain view before field styling is layered on top."
+    ],
+    "guideSteps": [
+      { "id": "claim", "label": "Main answer", "nodeId": "answer-grounding", "description": "The answer is fluent but only partially grounded." },
+      { "id": "weak-citation", "label": "Weak citation", "nodeId": "citation-gap", "description": "This citation is intentionally low confidence and should feel less stable." },
+      { "id": "risk", "label": "Grounding risk", "nodeId": "contradiction-gap", "description": "The contradiction should stay close enough to explain the weakness without replacing the answer." }
+    ],
+    "tasks": [
+      { "id": "trace-citations", "title": "Trace the grounded path", "prompt": "Follow the strongest answer/evidence/citation chain and see whether it remains co-visible.", "nodeIds": ["answer-grounding", "evidence-retrieval", "citation-strong"], "successNodeIds": ["answer-grounding", "evidence-retrieval", "citation-strong"], "successMode": "all" },
+      { "id": "find-weak-link", "title": "Find the weak link", "prompt": "Spot the weakest citation region without losing the supporting answer context.", "nodeIds": ["answer-grounding", "evidence-gap", "citation-gap", "contradiction-gap"], "successNodeIds": ["citation-gap", "contradiction-gap"], "successMode": "all" }
+    ]
+  },
+  "claim": {
+    "title": "Grounded Answers Depend on Citation Adjacency",
+    "id": "answer-grounding",
+    "statement": "When support chains drift apart, an answer may remain fluent while its actual grounding becomes difficult to inspect.",
+    "confidence": 0.87,
+    "importance": 0.92,
+    "stiffness": 0.88,
+    "maxWidth": 4.3,
+    "lineHeight": 0.29
+  },
+  "answerBlocks": [
+    { "id": "answer-retrieval", "text": "Strong evidence should stay near the claim, but weak citations should not disappear behind a rigid reading stack.", "confidence": 0.82, "importance": 0.8, "maxWidth": 4.0, "lineHeight": 0.25 }
+  ],
+  "evidence": [
+    { "id": "evidence-retrieval", "text": "Retrieval traces align with the claim when citation neighborhoods stay compact.", "confidence": 0.91, "importance": 0.86, "supports": ["answer-grounding"], "figures": ["figure-trace"] },
+    { "id": "evidence-gap", "text": "A weaker citation leaves the answer partially unsupported even if the prose still reads smoothly.", "confidence": 0.58, "importance": 0.74, "supports": ["answer-retrieval"] },
+    { "id": "evidence-overview", "text": "A plain renderer still needs semantic ordering so evidence does not collapse into a flat list.", "confidence": 0.84, "importance": 0.72, "supports": ["answer-grounding"] }
+  ],
+  "contradictions": [
+    { "id": "contradiction-gap", "text": "The weakest citation is too far from the claim to support fast audit.", "confidence": 0.36, "importance": 0.7, "targets": ["answer-grounding"], "idealDistance": 2.2 }
+  ],
+  "figures": [
+    { "id": "figure-trace", "imageId": "retrieval-map", "confidence": 0.78, "importance": 0.66, "stiffness": 0.44, "figureSide": "right", "targets": ["evidence-retrieval"] }
+  ],
+  "citations": [
+    { "id": "citation-strong", "label": "[R1] Retrieval trace · 82% overlap", "confidence": 0.9, "targets": ["evidence-retrieval"], "weight": 0.82, "idealDistance": 1.1 },
+    { "id": "citation-gap", "label": "[R2] Sparse grounding · 31% overlap", "confidence": 0.46, "targets": ["evidence-gap"], "weight": 0.64, "idealDistance": 1.25 }
+  ],
+  "tokens": [
+    { "id": "token-grounding", "text": "grounding", "confidence": 0.92, "targetId": "answer-grounding", "weight": 0.7, "idealDistance": 0.9 },
+    { "id": "token-drift", "text": "drift", "confidence": 0.38, "targetId": "contradiction-gap", "weight": 0.66, "idealDistance": 0.92 }
+  ]
+}

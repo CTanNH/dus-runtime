@@ -272,6 +272,18 @@ async function main() {
     window.location.href = url.toString();
   }
 
+  function switchPacket(nextPacketId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("demo", "knowledge");
+    url.searchParams.delete("packet");
+    if (!nextPacketId || nextPacketId === "workspace") {
+      url.searchParams.delete("packetId");
+    } else {
+      url.searchParams.set("packetId", nextPacketId);
+    }
+    window.location.href = url.toString();
+  }
+
   applyViewPreset(currentDemo.defaultView);
 
   const replay = () => {
@@ -289,6 +301,9 @@ async function main() {
     actions: {
       switchDemo(nextDemoId) {
         switchDemo(nextDemoId);
+      },
+      switchPacket(nextPacketId) {
+        switchPacket(nextPacketId);
       },
       focusNode(nodeId) {
         focusNode(nodeId);
@@ -330,6 +345,7 @@ async function main() {
     getPaused: () => paused,
     getShowTargets: () => renderer.getDebugFlags().showTargets,
     getShowHeat: () => renderer.getDebugFlags().showHeat,
+    getBenchmarkState: () => benchmark.getState(),
     project: (point) => renderer.project(point)
   });
   runtime.bindHostBridge(bridge);
@@ -549,15 +565,6 @@ async function main() {
       queryPulse: interaction.queryPulse,
       focusNodeId: interaction.focusNodeId,
       selectedNodeId: interaction.selectedNodeId
-    });
-
-    bridge.update({
-      scene,
-      layout,
-      debugState,
-      explainability,
-      benchmark: benchmark.getState(),
-      interactionField: interaction
     });
 
     requestAnimationFrame(frame);

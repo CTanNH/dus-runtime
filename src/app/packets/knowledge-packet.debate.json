@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "demoId": "knowledge",
+    "title": "Debate Pressure Workspace",
+    "subtitle": "Contradiction-heavy ingest fixture",
+    "description": "A debate-oriented packet that stresses contradiction, dissent, and citation pressure.",
+    "intent": "task",
+    "watchFor": [
+      "Dissent should remain close enough to inspect without flattening the main claim.",
+      "Low-confidence contradiction nodes should feel softer than the high-confidence scaffold.",
+      "The plain and field renderers should tell the same layout story."
+    ],
+    "guideSteps": [
+      { "id": "claim", "label": "Consensus claim", "nodeId": "claim-consensus", "description": "The center of the debate." },
+      { "id": "dissent", "label": "Primary dissent", "nodeId": "contradiction-fragility", "description": "A softer contradiction that should stay nearby but not dominate." },
+      { "id": "evidence", "label": "Evidence spine", "nodeId": "evidence-consensus", "description": "The supporting evidence chain anchoring the claim." }
+    ],
+    "tasks": [
+      { "id": "claim-support", "title": "Trace support for the claim", "prompt": "Follow the consensus claim through its evidence and citation spine.", "nodeIds": ["claim-consensus", "evidence-consensus", "citation-consensus"], "successNodeIds": ["claim-consensus", "evidence-consensus", "citation-consensus"], "successMode": "all" },
+      { "id": "weak-region", "title": "Find the weakest region", "prompt": "Compare the dissent cluster to the stronger consensus evidence.", "nodeIds": ["contradiction-fragility", "contradiction-scale", "citation-fragility"], "successNodeIds": ["contradiction-fragility", "citation-fragility"], "successMode": "all" }
+    ]
+  },
+  "claim": {
+    "title": "Consensus should not erase dissent",
+    "id": "claim-consensus",
+    "statement": "A usable knowledge field keeps the main answer readable while preserving nearby disagreement and uncertainty.",
+    "confidence": 0.92,
+    "importance": 0.94,
+    "stiffness": 0.9,
+    "maxWidth": 4.5,
+    "lineHeight": 0.29
+  },
+  "answerBlocks": [
+    { "id": "answer-surface", "text": "The runtime negotiates support and dissent in the same solved surface instead of exiling disagreement into hidden panels.", "confidence": 0.87, "importance": 0.82, "maxWidth": 4.0, "lineHeight": 0.25 }
+  ],
+  "evidence": [
+    { "id": "evidence-consensus", "text": "Support nodes remain near the answer when scaffold order and relation forces reinforce each other.", "confidence": 0.89, "importance": 0.84, "supports": ["claim-consensus"] },
+    { "id": "evidence-plain", "text": "A plain surface makes disagreement inspectable even when field styling is muted.", "confidence": 0.94, "importance": 0.88, "supports": ["answer-surface"] },
+    { "id": "evidence-bridge", "text": "Bridge overlays can expose solver narratives without owning node placement.", "confidence": 0.81, "importance": 0.76, "supports": ["answer-surface"] }
+  ],
+  "contradictions": [
+    { "id": "contradiction-fragility", "text": "If contradiction pressure is too weak, dissent collapses into decorative noise.", "confidence": 0.33, "importance": 0.7, "targets": ["claim-consensus"], "idealDistance": 2.35, "weight": 0.98 },
+    { "id": "contradiction-scale", "text": "Large contradiction clusters can still become illegible if overlap pressure dominates ordering.", "confidence": 0.46, "importance": 0.74, "targets": ["answer-surface"], "idealDistance": 2.2, "weight": 0.78 },
+    { "id": "contradiction-adoption", "text": "Teams may distrust the runtime if disagreement cannot be explained with concrete loss narratives.", "confidence": 0.52, "importance": 0.76, "targets": ["answer-surface"], "idealDistance": 2.0, "weight": 0.7 }
+  ],
+  "figures": [
+    { "id": "figure-consensus-map", "imageId": "citation-lattice", "clusterId": "figure-consensus", "confidence": 0.74, "importance": 0.64, "stiffness": 0.44, "figureSide": "left", "targets": ["evidence-consensus"] }
+  ],
+  "citations": [
+    { "id": "citation-consensus", "label": "[D1] Consensus replay · 42 seeds", "confidence": 0.88, "targets": ["evidence-consensus"], "weight": 0.78, "idealDistance": 1.2 },
+    { "id": "citation-fragility", "label": "[D2] Dissent drift probe · 9 failures", "confidence": 0.58, "targets": ["contradiction-fragility"], "weight": 0.66, "idealDistance": 1.2 },
+    { "id": "citation-bridge", "label": "[D3] Narrative export audit", "confidence": 0.82, "targets": ["evidence-bridge"], "weight": 0.74, "idealDistance": 1.1 }
+  ],
+  "tokens": [
+    { "id": "token-dissent", "text": "dissent", "confidence": 0.38, "targetId": "contradiction-fragility", "weight": 0.68, "idealDistance": 0.9 },
+    { "id": "token-consensus", "text": "consensus", "confidence": 0.9, "targetId": "claim-consensus", "weight": 0.72, "idealDistance": 0.92 }
+  ],
+  "relations": [
+    { "from": "evidence-plain", "to": "evidence-consensus", "type": "related", "weight": 0.46, "idealDistance": 1.3 },
+    { "from": "figure-consensus-map", "to": "citation-consensus", "type": "supports", "weight": 0.62, "idealDistance": 1.2 }
+  ]
+}

@@ -1,5 +1,6 @@
 import path from "node:path";
 import os from "node:os";
+import net from "node:net";
 import fs from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -9,9 +10,46 @@ const HOST = "127.0.0.1";
 const CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const NODE_EXE = process.execPath;
 const SERVER_SCRIPT = path.join(ROOT, "tools", "static-server.mjs");
-const SERVER_PORT = 8778;
 
-function spawnStaticServer() {
+function captureChildOutput(child) {
+  const output = { stdout: "", stderr: "" };
+  child.stdout?.setEncoding("utf8");
+  child.stderr?.setEncoding("utf8");
+  child.stdout?.on("data", (chunk) => {
+    output.stdout += chunk;
+    if (output.stdout.length > 64000) {
+      output.stdout = output.stdout.slice(-64000);
+    }
+  });
+  child.stderr?.on("data", (chunk) => {
+    output.stderr += chunk;
+    if (output.stderr.length > 64000) {
+      output.stderr = output.stderr.slice(-64000);
+    }
+  });
+  return output;
+}
+
+async function getFreePort(host = HOST) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, host, () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(port);
+      });
+    });
+  });
+}
+
+function spawnStaticServer(port) {
   return spawn(
     NODE_EXE,
     [
@@ -21,10 +59,10 @@ function spawnStaticServer() {
       "--host",
       HOST,
       "--port",
-      String(SERVER_PORT)
+      String(port)
     ],
     {
-      stdio: "ignore",
+      stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true
     }
   );
@@ -51,8 +89,8 @@ function spawnChrome(debugPort, userDataDir) {
   ];
 
   return spawn(CHROME_PATH, args, {
-    stdio: "ignore",
-    windowsHide: false
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true
   });
 }
 
@@ -257,24 +295,51 @@ async function captureScreenshot(cdp, filePath) {
   await fs.writeFile(filePath, Buffer.from(response.data, "base64"));
 }
 
+function formatProcessFailure(name, process, output, fallback) {
+  const lines = [fallback];
+  if (process.exitCode !== null) {
+    lines.push(`${name} exited early with code ${process.exitCode}.`);
+  }
+  if (output.stderr?.trim()) {
+    lines.push(`${name} stderr: ${output.stderr.trim()}`);
+  }
+  if (output.stdout?.trim()) {
+    lines.push(`${name} stdout: ${output.stdout.trim()}`);
+  }
+  return new Error(lines.join(" "));
+}
+
 async function main() {
   const artifactsDir = path.join(ROOT, "artifacts");
   await fs.mkdir(artifactsDir, { recursive: true });
+  const reportPath = path.join(artifactsDir, "validation-report.json");
+  await fs.rm(reportPath, { force: true }).catch(() => {});
 
-  const origin = `http://${HOST}:${SERVER_PORT}`;
-  const server = spawnStaticServer();
+  const serverPort = await getFreePort();
+  const origin = `http://${HOST}:${serverPort}`;
+  const server = spawnStaticServer(serverPort);
+  const serverOutput = captureChildOutput(server);
   await waitForOk(`${origin}/index.html`, 15000);
 
-  const debugPort = 9333;
+  const debugPort = await getFreePort();
   const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "dus-chrome-"));
   const chrome = spawnChrome(debugPort, userDataDir);
+  const chromeOutput = captureChildOutput(chrome);
 
   const consoleMessages = [];
   const exceptions = [];
   let cdp = null;
 
   try {
-    const targets = await waitForJson(`http://${HOST}:${debugPort}/json/list`, 15000);
+    let targets;
+    try {
+      targets = await waitForJson(`http://${HOST}:${debugPort}/json/list`, 20000);
+    } catch (error) {
+      if (chrome.exitCode !== null) {
+        throw formatProcessFailure("Chrome", chrome, chromeOutput, `Failed to connect to Chrome debug endpoint on port ${debugPort}.`);
+      }
+      throw error;
+    }
     const pageTarget = targets.find((target) => target.type === "page");
     if (!pageTarget?.webSocketDebuggerUrl) {
       throw new Error("No debuggable page target was exposed by Chrome.");
@@ -546,11 +611,28 @@ async function main() {
         heap: sample.metrics.JSHeapUsedSize ?? 0
       }))
       .filter((sample) => sample.heap > 0);
+    const nodeSeries = metricSamples
+      .map((sample, index) => ({
+        index,
+        nodes: sample.metrics.Nodes ?? 0
+      }))
+      .filter((sample) => sample.nodes > 0);
 
     const heapValues = heapSeries.map((sample) => sample.heap);
     const heapMin = heapValues.length > 0 ? Math.min(...heapValues) : 0;
     const heapMax = heapValues.length > 0 ? Math.max(...heapValues) : 0;
     const heapRange = heapMax - heapMin;
+    const nodeValues = nodeSeries.map((sample) => sample.nodes);
+    const nodeMin = nodeValues.length > 0 ? Math.min(...nodeValues) : 0;
+    const nodeMax = nodeValues.length > 0 ? Math.max(...nodeValues) : 0;
+    const steadyNodeSeries = nodeSeries.slice(Math.max(0, Math.floor(nodeSeries.length * 0.2)));
+    const steadyNodeValues = steadyNodeSeries.map((sample) => sample.nodes);
+    const steadyNodeMin = steadyNodeValues.length > 0 ? Math.min(...steadyNodeValues) : 0;
+    const steadyNodeMax = steadyNodeValues.length > 0 ? Math.max(...steadyNodeValues) : 0;
+    const steadyNodeRange = steadyNodeMax - steadyNodeMin;
+    const steadyNodeDrift = steadyNodeValues.length > 0
+      ? Math.abs(steadyNodeValues[steadyNodeValues.length - 1] - steadyNodeValues[0])
+      : 0;
 
     let gcDrops = 0;
     for (let i = 1; i < heapSeries.length; i += 1) {
@@ -568,6 +650,7 @@ async function main() {
 
     const report = {
       origin,
+      generatedAt: new Date().toISOString(),
       chromePath: CHROME_PATH,
       gpuReport,
       consoleMessages,
@@ -580,6 +663,15 @@ async function main() {
         max: heapMax,
         range: heapRange,
         gcDrops
+      },
+      nodes: {
+        min: nodeMin,
+        max: nodeMax,
+        range: nodeMax - nodeMin,
+        steadyMin: steadyNodeMin,
+        steadyMax: steadyNodeMax,
+        steadyRange: steadyNodeRange,
+        steadyDrift: steadyNodeDrift
       },
       deltas: {
         layout: (finalMetrics.LayoutCount ?? 0) - (baselineMetrics.LayoutCount ?? 0),
@@ -598,7 +690,6 @@ async function main() {
       }
     };
 
-    const reportPath = path.join(artifactsDir, "validation-report.json");
     await fs.writeFile(reportPath, JSON.stringify(report, null, 2));
     console.log(reportPath);
   } finally {
@@ -615,6 +706,10 @@ async function main() {
     }
 
     await fs.rm(userDataDir, { recursive: true, force: true }).catch(() => {});
+
+    if (server.exitCode !== null && server.exitCode !== 0) {
+      console.error(formatProcessFailure("Static server", server, serverOutput, "Static server exited unexpectedly.").message);
+    }
   }
 }
 

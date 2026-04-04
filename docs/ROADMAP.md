@@ -59,6 +59,7 @@ Progress so far:
 - scene normalization and contract diagnostics are now explicit in core
 - deterministic headless fixture scenes now exist
 - runtime-level deterministic checks now run in `npm run test:core`
+- packet fixture catalogs and offline packet validation now exist
 
 Exit criteria:
 
@@ -173,6 +174,7 @@ The repo is ready for broader public attention when all of these are true:
 ## Immediate Next Work
 
 - harden the scene/constraint schema beyond the current normalization layer
+- grow packet ingest beyond local fixtures into real LLM/retrieval adapter inputs
 - deepen the benchmark harness from simple run tracking into a repeatable evaluation workflow
 - make the solver/debug layers easier to inspect
 - refine the knowledge workspace into a real task demo

@@ -1,0 +1,74 @@
+{
+  "metadata": {
+    "demoId": "knowledge",
+    "title": "Model Comparison Surface",
+    "subtitle": "Packet fixture for agreement, divergence, and provenance",
+    "description": "A comparison packet where agreement, disagreement, and provenance remain co-visible instead of being flattened into two side-by-side answer cards.",
+    "intent": "task",
+    "watchFor": [
+      "The shared claim should stay readable while agreement and disagreement evidence settle into separate local basins.",
+      "Low-confidence divergence nodes should feel warmer and looser than corroborated evidence.",
+      "Citations and figures should stay attached to the evidence they justify."
+    ],
+    "guideSteps": [
+      { "id": "claim", "label": "Shared question", "nodeId": "claim-shared-question", "description": "The comparison revolves around a single question, not two detached chat bubbles." },
+      { "id": "agreement", "label": "Agreement basin", "nodeId": "evidence-consensus", "description": "This node anchors the region where both models converge." },
+      { "id": "disagreement", "label": "Divergence basin", "nodeId": "contradiction-gap", "description": "This low-confidence region captures where the models start to disagree." },
+      { "id": "figure", "label": "Trace figure", "nodeId": "figure-retrieval-map", "description": "The figure is tied to evidence rather than pinned to a side rail." }
+    ],
+    "tasks": [
+      { "id": "claim-support", "title": "Trace the shared support chain", "prompt": "Follow the shared claim through consensus evidence, a figure, and a citation.", "nodeIds": ["claim-shared-question", "evidence-consensus", "figure-retrieval-map", "citation-consensus"], "successNodeIds": ["claim-shared-question", "evidence-consensus", "citation-consensus"], "successMode": "all" },
+      { "id": "weak-region", "title": "Find the disagreement pocket", "prompt": "Locate the soft divergence region and inspect it without losing the shared question.", "nodeIds": ["contradiction-gap", "evidence-uncertain-tail", "citation-gap"], "successNodeIds": ["contradiction-gap", "citation-gap"], "successMode": "all" },
+      { "id": "layout-explain", "title": "Explain the provenance layout", "prompt": "Select the provenance node and confirm the runtime still explains why it stayed nearby.", "nodeIds": ["answer-provenance", "evidence-attribution", "token-provenance"], "successNodeIds": ["answer-provenance", "evidence-attribution"], "successMode": "all" }
+    ]
+  },
+  "claim": {
+    "title": "Model Comparison",
+    "id": "claim-shared-question",
+    "statement": "Comparing two model answers is easier when agreement, disagreement, and provenance share one solved surface instead of splitting into isolated panes.",
+    "confidence": 0.91,
+    "importance": 0.95,
+    "stiffness": 0.92,
+    "maxWidth": 4.6,
+    "lineHeight": 0.3,
+    "paddingX": 0.2,
+    "paddingY": 0.16
+  },
+  "answerBlocks": [
+    { "id": "answer-consensus", "text": "Consensus evidence should cluster without turning into a rigid stack; the reading path remains intact even as focus shifts.", "confidence": 0.87, "importance": 0.84, "maxWidth": 4.2, "lineHeight": 0.26 },
+    { "id": "answer-provenance", "text": "Attribution, citations, and figure traces stay near the answer they justify rather than hiding in a footer.", "confidence": 0.83, "importance": 0.8, "maxWidth": 4.0, "lineHeight": 0.25 }
+  ],
+  "evidence": [
+    { "id": "evidence-consensus", "text": "Both models identify the same evidence cluster and keep it close to the shared question.", "confidence": 0.92, "importance": 0.88, "supports": ["claim-shared-question"], "figures": ["figure-retrieval-map"] },
+    { "id": "evidence-attribution", "text": "The provenance chain stays attached when citations and figures are solved as semantic nodes.", "confidence": 0.86, "importance": 0.82, "supports": ["answer-provenance"], "figures": ["figure-citation-lattice"] },
+    { "id": "evidence-focus-basin", "text": "Focus pulls related evidence into a local basin without erasing the opposing region.", "confidence": 0.82, "importance": 0.78, "supports": ["answer-consensus"] },
+    { "id": "evidence-uncertain-tail", "text": "Divergent fragments remain close enough to inspect, but distant enough to read as disagreement.", "confidence": 0.58, "importance": 0.72, "supports": ["claim-shared-question"], "figures": ["figure-uncertainty-ridge"] },
+    { "id": "evidence-layout-proof", "text": "The solver can preserve order and avoid collisions without hardcoding a two-column comparison shell.", "confidence": 0.88, "importance": 0.84, "supports": ["answer-consensus"] }
+  ],
+  "contradictions": [
+    { "id": "contradiction-gap", "text": "If divergence is flattened into a single score, analysts lose the local structure of disagreement.", "confidence": 0.33, "importance": 0.7, "targets": ["claim-shared-question"], "idealDistance": 2.3 },
+    { "id": "contradiction-pane-lock", "text": "Fixed split panes make provenance feel detached from the evidence it belongs to.", "confidence": 0.41, "importance": 0.72, "targets": ["answer-provenance"], "idealDistance": 2.15 },
+    { "id": "contradiction-citation-drift", "text": "If citations drift too far, the comparison surface devolves into annotation hunting.", "confidence": 0.48, "importance": 0.74, "targets": ["answer-provenance"], "idealDistance": 2.05 }
+  ],
+  "figures": [
+    { "id": "figure-retrieval-map", "imageId": "retrieval-map", "clusterId": "figure-consensus", "confidence": 0.82, "importance": 0.7, "stiffness": 0.54, "figureSide": "right", "targets": ["evidence-consensus"] },
+    { "id": "figure-citation-lattice", "imageId": "citation-lattice", "clusterId": "figure-attribution", "confidence": 0.78, "importance": 0.67, "stiffness": 0.48, "figureSide": "left", "targets": ["evidence-attribution"] },
+    { "id": "figure-uncertainty-ridge", "imageId": "uncertainty-ridge", "clusterId": "figure-gap", "confidence": 0.44, "importance": 0.6, "stiffness": 0.3, "figureSide": "right", "targets": ["evidence-uncertain-tail"] }
+  ],
+  "citations": [
+    { "id": "citation-consensus", "label": "[A] Shared retrieval trace", "confidence": 0.9, "targets": ["evidence-consensus"], "weight": 0.78, "idealDistance": 1.2 },
+    { "id": "citation-attribution", "label": "[B] Provenance map", "confidence": 0.86, "targets": ["evidence-attribution"], "weight": 0.74, "idealDistance": 1.18 },
+    { "id": "citation-gap", "label": "[C] Divergence log", "confidence": 0.62, "targets": ["contradiction-gap"], "weight": 0.68, "idealDistance": 1.18 },
+    { "id": "citation-layout", "label": "[D] Layout benchmark", "confidence": 0.91, "targets": ["evidence-layout-proof"], "weight": 0.76, "idealDistance": 1.2 }
+  ],
+  "tokens": [
+    { "id": "token-agreement", "text": "agreement basin", "confidence": 0.9, "targetId": "evidence-consensus", "weight": 0.68, "idealDistance": 0.94 },
+    { "id": "token-divergence", "text": "divergence", "confidence": 0.38, "targetId": "contradiction-gap", "weight": 0.72, "idealDistance": 0.9 },
+    { "id": "token-provenance", "text": "provenance", "confidence": 0.84, "targetId": "answer-provenance", "weight": 0.66, "idealDistance": 0.94 },
+    { "id": "token-focus", "text": "focus basin", "confidence": 0.72, "targetId": "evidence-focus-basin", "weight": 0.66, "idealDistance": 0.92 },
+    { "id": "token-order", "text": "reading order", "confidence": 0.88, "targetId": "evidence-layout-proof", "weight": 0.66, "idealDistance": 0.94 }
+  ],
+  "relations": [
+    { "from": "evidence-uncertain-tail", "to": "contradiction-gap", "type": "related", "weight": 0.58, "idealDistance": 1.42 }
+  ]
+}

@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
 
+import { KNOWLEDGE_PACKET_SPECS } from "../src/app/knowledgePackets.js";
 import { normalizeSceneContract } from "../src/core/contracts.js";
 import { createBenchmarkHarness } from "../src/core/benchmark.js";
 import { createFixtureScene } from "../src/core/fixtures.js";
 import { buildKnowledgeSceneFromDocument } from "../src/core/ingest.js";
+import { buildKnowledgeSceneFromPacket } from "../src/core/knowledgeScene.js";
 import { buildKnowledgeDocumentFromPacket, normalizeKnowledgePacket } from "../src/core/knowledgePacket.js";
 import { buildScaffold } from "../src/core/scaffold.js";
+import { createRuntimeSnapshot, normalizeRuntimeSnapshot } from "../src/core/snapshot.js";
 import { createDusRuntime } from "../src/core/runtime.js";
 
 function roundedLayout(layout) {
@@ -32,6 +36,32 @@ function roundedPoseMap(map) {
       height: Number(pose.height.toFixed(6))
     }))
     .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function createValidationAssetProvider() {
+  return {
+    createTextRun(id, text, options = {}) {
+      const lineHeight = options.lineHeight ?? 0.24;
+      const width = Math.max((options.maxWidth ?? 2.0) * 0.82, text.length * 0.06);
+      return {
+        id,
+        text,
+        glyphs: [],
+        width,
+        height: lineHeight,
+        paddedWidth: width + (options.paddingX ?? 0.12) * 2.0,
+        paddedHeight: lineHeight + (options.paddingY ?? 0.1) * 2.0,
+        distanceRange: 4.0
+      };
+    },
+    getImage(imageId) {
+      return {
+        id: imageId,
+        aspect: 2.0,
+        uvRect: { u0: 0.0, v0: 0.0, u1: 1.0, v1: 1.0 }
+      };
+    }
+  };
 }
 
 async function run(name, fn) {
@@ -75,29 +105,7 @@ await run("scene contract drops dangling relations and normalizes viewport", asy
 });
 
 await run("knowledge ingestion builds a contract-clean scene from semantic document input", async () => {
-  const assetProvider = {
-    createTextRun(id, text, options = {}) {
-      const lineHeight = options.lineHeight ?? 0.24;
-      const width = Math.max((options.maxWidth ?? 2.0) * 0.82, text.length * 0.06);
-      return {
-        id,
-        text,
-        glyphs: [],
-        width,
-        height: lineHeight,
-        paddedWidth: width + (options.paddingX ?? 0.12) * 2.0,
-        paddedHeight: lineHeight + (options.paddingY ?? 0.1) * 2.0,
-        distanceRange: 4.0
-      };
-    },
-    getImage(imageId) {
-      return {
-        id: imageId,
-        aspect: 2.0,
-        uvRect: { u0: 0.0, v0: 0.0, u1: 1.0, v1: 1.0 }
-      };
-    }
-  };
+  const assetProvider = createValidationAssetProvider();
 
   const scene = buildKnowledgeSceneFromDocument({
     metadata: { title: "Ingested Scene" },
@@ -121,6 +129,20 @@ await run("knowledge ingestion builds a contract-clean scene from semantic docum
   assert.equal(scene.nodes[0].rendererPayload.type, "text");
   assert.equal(scene.nodes[2].rendererPayload.type, "image");
   assert.equal(scene.relations.length, 2);
+});
+
+await run("knowledge packet fixture catalog validates every bundled packet", async () => {
+  const assetProvider = createValidationAssetProvider();
+  assert.ok(KNOWLEDGE_PACKET_SPECS.length >= 3);
+  assert.equal(new Set(KNOWLEDGE_PACKET_SPECS.map((fixture) => fixture.id)).size, KNOWLEDGE_PACKET_SPECS.length);
+
+  for (const fixture of KNOWLEDGE_PACKET_SPECS) {
+    const raw = await fs.readFile(fixture.url, "utf8");
+    const built = buildKnowledgeSceneFromPacket(JSON.parse(raw), assetProvider);
+    assert.equal(built.sceneDiagnostics.errors.length, 0, fixture.id);
+    assert.ok(built.scene.metadata.title, fixture.id);
+    assert.equal(built.scene.metadata.demoId, "knowledge", fixture.id);
+  }
 });
 
 await run("knowledge packet expands into document-level semantic scene input", async () => {
@@ -253,6 +275,85 @@ await run("runtime exports explainability state and node narratives", async () =
   assert.ok(explainedRisk.narrative.includes("node"));
 });
 
+await run("runtime snapshot is deterministic and restorable", async () => {
+  const scene = createFixtureScene();
+  const runtimeA = createDusRuntime({ seed: 17, iterationsPerFrame: 2, params: { targetWeight: 3.4 } });
+  const runtimeB = createDusRuntime({ seed: 3, iterationsPerFrame: 1, params: { targetWeight: 1.5 } });
+
+  runtimeA.setScene(scene);
+  runtimeA.solve(48, 1.0 / 60.0);
+  runtimeA.setInteractionField({
+    focusNodeId: "claim",
+    selectedNodeId: "risk",
+    queryPulse: 0.62,
+    cursorX: -0.4,
+    cursorY: 0.3
+  });
+
+  const snapshotA = runtimeA.exportSnapshot();
+  const normalized = normalizeRuntimeSnapshot(snapshotA);
+
+  assert.equal(normalized.version, 2);
+  assert.equal(normalized.runtime.seed, 17);
+  assert.equal(normalized.summary.nodeCount, scene.nodes.length);
+  assert.equal(normalized.solverState.nodes.length, scene.nodes.length);
+  assert.equal(typeof JSON.stringify(snapshotA), "string");
+
+  runtimeB.importSnapshot(snapshotA);
+  assert.deepEqual(roundedLayout(runtimeA.getLayout()), roundedLayout(runtimeB.getLayout()));
+  assert.deepEqual(runtimeA.getDebugState().convergenceTrace, runtimeB.getDebugState().convergenceTrace);
+  assert.equal(runtimeB.getExplainability().scene.focusedNodeId, "claim");
+  assert.equal(runtimeB.getExplainability().scene.selectedNodeId, "risk");
+});
+
+await run("runtime snapshot helpers preserve scene summaries and reject mismatches", async () => {
+  const scene = createFixtureScene();
+  const runtime = createDusRuntime({ seed: 17, iterationsPerFrame: 2 });
+  runtime.setScene(scene);
+  runtime.solve(24, 1.0 / 60.0);
+
+  const snapshot = createRuntimeSnapshot({
+    config: { seed: 17, iterationsPerFrame: 2, params: {} },
+    scene: runtime.getScene(),
+    sceneDiagnostics: runtime.getSceneDiagnostics(),
+    scaffold: buildScaffold(runtime.getScene(), { seed: 17 }),
+    solverState: {
+      frameIndex: runtime.getDebugState().convergenceTrace.length,
+      convergenceTrace: runtime.getDebugState().convergenceTrace,
+      nodes: runtime.getLayout().nodePoses.map((pose) => ({
+        id: pose.id,
+        x: pose.x,
+        y: pose.y,
+        width: pose.width,
+        height: pose.height,
+        targetX: pose.targetX,
+        targetY: pose.targetY,
+        targetWidth: pose.targetWidth,
+        targetHeight: pose.targetHeight,
+        importance: pose.importance,
+        confidence: pose.confidence,
+        stiffness: pose.stiffness,
+        visible: pose.visible,
+        overlapHeat: pose.overlapHeat,
+        focusInfluence: pose.focusInfluence,
+        motionX: pose.motionX,
+        motionY: pose.motionY,
+        losses: runtime.getDebugState().nodes.find((entry) => entry.id === pose.id)?.losses ?? {},
+        activeConstraints: runtime.getDebugState().nodes.find((entry) => entry.id === pose.id)?.activeConstraints ?? []
+      }))
+    },
+    interactionField: runtime.getInteractionField(),
+    debugState: runtime.getDebugState()
+  });
+
+  assert.equal(snapshot.summary.nodeCount, scene.nodes.length);
+  assert.equal(snapshot.summary.constraintCount, scene.constraints.length);
+  assert.ok(snapshot.summary.topLossNodes.length > 0);
+
+  snapshot.solverState.nodes.pop();
+  assert.throws(() => runtime.importSnapshot(snapshot), /node count does not match/);
+});
+
 await run("benchmark harness records comparable task runs", async () => {
   let now = 0;
   const store = {
@@ -316,4 +417,4 @@ await run("benchmark harness records comparable task runs", async () => {
   assert.ok(baselineState.tasks[0].comparison.elapsedMs > 0);
 });
 
-console.log("Passed 9 core runtime checks.");
+console.log("Passed 12 core runtime checks.");

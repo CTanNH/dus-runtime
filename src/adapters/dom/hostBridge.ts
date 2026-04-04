@@ -32,8 +32,14 @@ export function createDomHostBridge(options) {
   const guideBody = document.createElement("div");
   const guideList = document.createElement("div");
   const taskList = document.createElement("div");
+  const packetList = document.createElement("div");
   const benchmarkBox = document.createElement("div");
   const guideActions = document.createElement("div");
+  const inspectorText = document.createTextNode("");
+  const calloutText = document.createTextNode("");
+  const guideTitleText = document.createTextNode("");
+  const guideBodyText = document.createTextNode("");
+  const benchmarkText = document.createTextNode("");
 
   setStyle(root, {
     position: "fixed",
@@ -133,6 +139,12 @@ export function createDomHostBridge(options) {
     gap: "8px"
   });
 
+  setStyle(packetList, {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px"
+  });
+
   setStyle(benchmarkBox, {
     padding: "10px 12px",
     borderRadius: "14px",
@@ -142,6 +154,12 @@ export function createDomHostBridge(options) {
     whiteSpace: "pre-wrap",
     color: "#c8d8f1"
   });
+
+  inspector.append(inspectorText);
+  callout.append(calloutText);
+  guideTitle.append(guideTitleText);
+  guideBody.append(guideBodyText);
+  benchmarkBox.append(benchmarkText);
 
   const buttons = {
     benchmark: createButton("Benchmark", () => options.actions.switchDemo("field")),
@@ -170,7 +188,7 @@ export function createDomHostBridge(options) {
     buttons.pause,
     buttons.replay
   );
-  guide.append(guideTitle, guideBody, taskList, benchmarkBox, guideList, guideActions);
+  guide.append(guideTitle, guideBody, taskList, packetList, benchmarkBox, guideList, guideActions);
   root.append(controls, inspector, callout, guide);
   document.body.append(root);
 
@@ -181,6 +199,7 @@ export function createDomHostBridge(options) {
   let lastUiSync = -Infinity;
   let lastSelectionId = null;
   let taskButtons = [];
+  let packetButtons = [];
   let guideButtons = [];
 
   return {
@@ -192,6 +211,9 @@ export function createDomHostBridge(options) {
       const demo = viewModel.scene.metadata ?? {};
       const guideSteps = demo.guideSteps ?? [];
       const tasks = demo.tasks ?? [];
+      const packetInfo = demo.packet ?? {};
+      const packetCatalog = demo.packetCatalog ?? [];
+      const activePacketId = demo.activePacketId ?? packetInfo.sourceId ?? null;
       const selectionId = viewModel.interactionField.selectedNodeId;
       const selected = selectionId
         ? viewModel.layout.nodePoses.find((pose) => pose.id === selectionId)
@@ -202,7 +224,7 @@ export function createDomHostBridge(options) {
       const selectedExplainability = selectionId
         ? viewModel.explainability?.nodes?.find((node) => node.id === selectionId)
         : null;
-      const benchmarkState = viewModel.benchmark ?? { tasks: [], activeRun: null, recentResults: [] };
+      const benchmarkState = viewModel.benchmark ?? options.getBenchmarkState?.() ?? { tasks: [], activeRun: null, recentResults: [] };
       const totals = viewModel.debugState.totals ?? {};
       const unstableSummary = (viewModel.explainability?.scene?.topUnstableNodes ?? [])
         .slice(0, 3)
@@ -226,15 +248,26 @@ export function createDomHostBridge(options) {
 
       const nextGuideSignature = JSON.stringify({
         demoId: demo.demoId ?? "scene",
+        title: demo.title ?? "",
+        description: demo.description ?? "",
+        packetSource: packetInfo.sourceLabel ?? "",
+        packetWarnings: packetInfo.warningCount ?? 0,
         steps: guideSteps.map((step) => ({ id: step.id, label: step.label, nodeId: step.nodeId })),
-        tasks: tasks.map((task) => ({ id: task.id, title: task.title, nodeIds: task.nodeIds }))
+        tasks: tasks.map((task) => ({ id: task.id, title: task.title, nodeIds: task.nodeIds })),
+        packets: packetCatalog.map((packet) => ({ id: packet.id, label: packet.label }))
       });
 
       if (nextGuideSignature !== guideSignature) {
         guideSignature = nextGuideSignature;
-        guideTitle.textContent = `${demo.title ?? "Scene"} guide`;
-        guideBody.textContent = [
+        guideTitleText.nodeValue = `${demo.title ?? "Scene"} guide`;
+        const packetCounts = packetInfo.counts
+          ? `ingest    ans ${packetInfo.counts.answerBlocks} · ev ${packetInfo.counts.evidence} · ctr ${packetInfo.counts.contradictions} · fig ${packetInfo.counts.figures} · cit ${packetInfo.counts.citations} · tok ${packetInfo.counts.tokens}`
+          : null;
+        guideBodyText.nodeValue = [
           demo.description ?? "",
+          packetInfo.sourceLabel ? `packet    ${packetInfo.sourceLabel}` : null,
+          packetCounts,
+          typeof packetInfo.warningCount === "number" ? `warnings  ${packetInfo.warningCount}` : null,
           "",
           "watch for",
           ...(demo.watchFor ?? []).map((item) => `- ${item}`)
@@ -253,6 +286,23 @@ export function createDomHostBridge(options) {
           button.textContent = `${task.title} — ${task.prompt}`;
           taskList.append(button);
           taskButtons.push(button);
+        }
+
+        packetList.replaceChildren();
+        packetButtons = [];
+        if (packetCatalog.length > 0 && options.actions.switchPacket) {
+          for (const packet of packetCatalog) {
+            const button = createButton(packet.label, () => options.actions.switchPacket(packet.id));
+            button.dataset.packetId = packet.id;
+            button.style.justifyContent = "flex-start";
+            button.style.textAlign = "left";
+            button.style.width = "100%";
+            button.style.borderRadius = "14px";
+            button.style.padding = "8px 10px";
+            button.textContent = `Packet — ${packet.label}`;
+            packetList.append(button);
+            packetButtons.push(button);
+          }
         }
 
         guideList.replaceChildren();
@@ -292,11 +342,24 @@ export function createDomHostBridge(options) {
         button.style.opacity = button.dataset.nodeId === selectionId ? "1" : "0.76";
       }
 
+      for (const button of packetButtons) {
+        const isActive = button.dataset.packetId === activePacketId;
+        button.style.opacity = isActive ? "1" : "0.74";
+        button.style.borderColor = isActive
+          ? "rgba(151,196,255,0.46)"
+          : "rgba(140,170,220,0.22)";
+      }
+
       if (shouldSyncText) {
         const nextInspector = [
           `DUS runtime`,
           `demo      ${demo.title ?? demo.demoId ?? "scene"}`,
           demo.subtitle ? `intent    ${demo.subtitle}` : null,
+          packetInfo.sourceLabel ? `packet    ${packetInfo.sourceLabel}` : null,
+          packetInfo.counts
+            ? `ingest    ans ${packetInfo.counts.answerBlocks} · ev ${packetInfo.counts.evidence} · ctr ${packetInfo.counts.contradictions} · fig ${packetInfo.counts.figures} · cit ${packetInfo.counts.citations} · tok ${packetInfo.counts.tokens}`
+            : null,
+          typeof packetInfo.warningCount === "number" ? `warnings  ${packetInfo.warningCount}` : null,
           `view      ${options.getViewPreset()}`,
           `paused    ${options.getPaused() ? "yes" : "no"}`,
           `nodes     ${viewModel.layout.nodePoses.length}`,
@@ -327,7 +390,7 @@ export function createDomHostBridge(options) {
         ].join("\n");
         if (nextInspector !== inspectorSignature) {
           inspectorSignature = nextInspector;
-          inspector.textContent = nextInspector;
+          inspectorText.nodeValue = nextInspector;
         }
 
         const activeRun = benchmarkState.activeRun;
@@ -352,7 +415,7 @@ export function createDomHostBridge(options) {
             ].filter(Boolean).join("\n");
         if (nextBenchmark !== benchmarkSignature) {
           benchmarkSignature = nextBenchmark;
-          benchmarkBox.textContent = nextBenchmark;
+          benchmarkText.nodeValue = nextBenchmark;
         }
         lastUiSync = now;
       }
@@ -380,7 +443,7 @@ export function createDomHostBridge(options) {
         calloutSignature = nextCalloutSignature;
         callout.style.display = "block";
         callout.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -100%)`;
-        callout.textContent = nextCalloutText;
+        calloutText.nodeValue = nextCalloutText;
       }
     }
   };

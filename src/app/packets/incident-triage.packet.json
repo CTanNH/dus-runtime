@@ -1,0 +1,74 @@
+{
+  "metadata": {
+    "demoId": "knowledge",
+    "title": "Incident Triage Surface",
+    "subtitle": "Packet fixture for browser/runtime validation",
+    "description": "A packet focused on runtime hardening: shader startup, browser validation, host bridge churn, and packet diagnostics share one surface.",
+    "intent": "task",
+    "watchFor": [
+      "The claim should remain central while operational evidence and warnings orbit without collapsing into a rigid stack.",
+      "Lower-confidence risk nodes should stay warmer and softer than the cold validation path.",
+      "Packet-driven figures and citations should attach to evidence instead of becoming sidebars."
+    ],
+    "guideSteps": [
+      { "id": "claim", "label": "Main hypothesis", "nodeId": "claim-runtime-hardening", "description": "This is the operational claim the surface is trying to stabilize." },
+      { "id": "validation", "label": "Validation chain", "nodeId": "evidence-browser-guardrail", "description": "The browser validation path should stay adjacent to the claim and its proof nodes." },
+      { "id": "risk", "label": "Host churn risk", "nodeId": "contradiction-host-churn", "description": "This soft risk node should remain legible without overpowering the claim." },
+      { "id": "figure", "label": "Telemetry figure", "nodeId": "figure-evidence-flow", "description": "This figure is first-class evidence, not a detached screenshot." }
+    ],
+    "tasks": [
+      { "id": "claim-support", "title": "Trace the validation path", "prompt": "Follow the claim through browser validation, packet diagnostics, and a supporting citation.", "nodeIds": ["claim-runtime-hardening", "evidence-browser-guardrail", "citation-packet-guard"], "successNodeIds": ["claim-runtime-hardening", "evidence-browser-guardrail", "citation-packet-guard"], "successMode": "all" },
+      { "id": "weak-region", "title": "Find the unstable operational region", "prompt": "Inspect the host churn warning path without losing the main claim.", "nodeIds": ["contradiction-host-churn", "figure-uncertainty-ridge", "citation-host-bridge"], "successNodeIds": ["contradiction-host-churn", "citation-host-bridge"], "successMode": "all" },
+      { "id": "layout-explain", "title": "Explain why the packet warning sits there", "prompt": "Select the packet warning node and confirm the solver narrative is still legible.", "nodeIds": ["answer-warning-budget", "evidence-packet-audit", "token-warning"], "successNodeIds": ["answer-warning-budget", "evidence-packet-audit"], "successMode": "all" }
+    ]
+  },
+  "claim": {
+    "title": "Runtime Hardening",
+    "id": "claim-runtime-hardening",
+    "statement": "A solver-backed interface only becomes infrastructure when browser validation, packet ingestion, and explainability survive the same runtime surface.",
+    "confidence": 0.92,
+    "importance": 0.95,
+    "stiffness": 0.93,
+    "maxWidth": 4.6,
+    "lineHeight": 0.3,
+    "paddingX": 0.2,
+    "paddingY": 0.16
+  },
+  "answerBlocks": [
+    { "id": "answer-validation-loop", "text": "The browser loop now proves WebGPU startup, shader compilation, and runtime readiness instead of relying on screenshots alone.", "confidence": 0.89, "importance": 0.86, "maxWidth": 4.2, "lineHeight": 0.26 },
+    { "id": "answer-warning-budget", "text": "Packet warnings should stay visible but bounded. Diagnostics belong to the data plane, not to ad-hoc console archaeology.", "confidence": 0.77, "importance": 0.76, "stiffness": 0.66, "maxWidth": 3.9, "lineHeight": 0.25 }
+  ],
+  "evidence": [
+    { "id": "evidence-browser-guardrail", "text": "Headless browser validation now waits for explicit runtime readiness and rejects shader startup regressions.", "confidence": 0.93, "importance": 0.9, "supports": ["claim-runtime-hardening"], "figures": ["figure-evidence-flow"] },
+    { "id": "evidence-packet-audit", "text": "Knowledge packets are normalized before scene ingest, so malformed targets become warnings instead of silent layout corruption.", "confidence": 0.86, "importance": 0.82, "supports": ["answer-warning-budget"], "figures": ["figure-citation-lattice"] },
+    { "id": "evidence-runtime-contract", "text": "Scene normalization rejects duplicate nodes and drops dangling relations before the solver runs.", "confidence": 0.91, "importance": 0.86, "supports": ["answer-validation-loop"] },
+    { "id": "evidence-host-bridge", "text": "DOM overlays now update on a throttled cadence, reducing overlay churn without severing explainability.", "confidence": 0.79, "importance": 0.74, "supports": ["answer-warning-budget"] },
+    { "id": "evidence-packet-fixtures", "text": "A fixture catalog makes packet ingest testable across multiple knowledge surfaces instead of one hand-authored sample.", "confidence": 0.84, "importance": 0.8, "supports": ["claim-runtime-hardening"] }
+  ],
+  "contradictions": [
+    { "id": "contradiction-host-churn", "text": "The host bridge can still dominate cost if overlays rebuild too eagerly around focus and selection changes.", "confidence": 0.36, "importance": 0.69, "targets": ["answer-warning-budget"], "idealDistance": 2.25, "weight": 0.96 },
+    { "id": "contradiction-external-packet", "text": "External packet URLs remain risky if teams skip offline validation and ship malformed semantic payloads.", "confidence": 0.44, "importance": 0.72, "targets": ["claim-runtime-hardening"], "idealDistance": 2.35 },
+    { "id": "contradiction-operator-load", "text": "If diagnostics stay buried in tooling, operators will still read the surface as a magical black box.", "confidence": 0.49, "importance": 0.75, "targets": ["answer-validation-loop"], "idealDistance": 2.15 }
+  ],
+  "figures": [
+    { "id": "figure-evidence-flow", "imageId": "evidence-flow", "clusterId": "figure-validation", "confidence": 0.83, "importance": 0.72, "stiffness": 0.56, "figureSide": "right", "targets": ["evidence-browser-guardrail"] },
+    { "id": "figure-citation-lattice", "imageId": "citation-lattice", "clusterId": "figure-packet", "confidence": 0.74, "importance": 0.66, "stiffness": 0.46, "figureSide": "left", "targets": ["evidence-packet-audit"] },
+    { "id": "figure-uncertainty-ridge", "imageId": "uncertainty-ridge", "clusterId": "figure-risk", "confidence": 0.42, "importance": 0.6, "stiffness": 0.3, "figureSide": "right", "targets": ["contradiction-host-churn"] }
+  ],
+  "citations": [
+    { "id": "citation-packet-guard", "label": "[A] Packet validator · 3 fixture lanes", "confidence": 0.9, "targets": ["evidence-browser-guardrail"], "weight": 0.8, "idealDistance": 1.25 },
+    { "id": "citation-host-bridge", "label": "[B] Host bridge cadence · 120ms", "confidence": 0.72, "targets": ["contradiction-host-churn"], "weight": 0.7, "idealDistance": 1.18 },
+    { "id": "citation-runtime-contract", "label": "[C] Contract diagnostics · duplicate node rejection", "confidence": 0.94, "targets": ["evidence-runtime-contract"], "weight": 0.78, "idealDistance": 1.18 },
+    { "id": "citation-fixtures", "label": "[D] Fixture catalog · packet replay", "confidence": 0.86, "targets": ["evidence-packet-fixtures"], "weight": 0.72, "idealDistance": 1.2 }
+  ],
+  "tokens": [
+    { "id": "token-ready", "text": "ready gate", "confidence": 0.92, "targetId": "evidence-browser-guardrail", "weight": 0.7, "idealDistance": 0.96 },
+    { "id": "token-warning", "text": "warning budget", "confidence": 0.46, "targetId": "answer-warning-budget", "weight": 0.74, "idealDistance": 0.92 },
+    { "id": "token-contract", "text": "contract clean", "confidence": 0.88, "targetId": "evidence-runtime-contract", "weight": 0.68, "idealDistance": 0.94 },
+    { "id": "token-overlay", "text": "overlay churn", "confidence": 0.38, "targetId": "contradiction-host-churn", "weight": 0.72, "idealDistance": 0.9 },
+    { "id": "token-packet", "text": "fixture replay", "confidence": 0.8, "targetId": "evidence-packet-fixtures", "weight": 0.66, "idealDistance": 0.94 }
+  ],
+  "relations": [
+    { "from": "evidence-host-bridge", "to": "contradiction-host-churn", "type": "related", "weight": 0.54, "idealDistance": 1.45 }
+  ]
+}

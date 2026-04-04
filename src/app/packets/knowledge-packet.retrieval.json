@@ -1,0 +1,63 @@
+{
+  "metadata": {
+    "demoId": "knowledge",
+    "title": "Retrieval Trace Workspace",
+    "subtitle": "Evidence-heavy ingest fixture",
+    "description": "A retrieval-oriented packet with denser evidence and citation structure than the default workspace.",
+    "intent": "task",
+    "watchFor": [
+      "Evidence should cluster around the answer without flattening into a single card stack.",
+      "Citations should remain legible and locally ordered while preserving relation pressure.",
+      "The figure should stay attached to the retrieval chain rather than being exiled to a side panel."
+    ],
+    "guideSteps": [
+      { "id": "claim", "label": "Retrieval claim", "nodeId": "claim-retrieval", "description": "The main retrieval statement the workspace is trying to stabilize." },
+      { "id": "trace", "label": "Trace evidence", "nodeId": "evidence-trace", "description": "Follow this evidence chain through figure and citation support." },
+      { "id": "latency", "label": "Latency risk", "nodeId": "contradiction-latency", "description": "Low-confidence latency drift should stay visible without overwhelming the answer." }
+    ],
+    "tasks": [
+      { "id": "claim-support", "title": "Trace support for the claim", "prompt": "Follow the retrieval claim through its strongest evidence and citation anchors.", "nodeIds": ["claim-retrieval", "evidence-trace", "citation-latency"], "successNodeIds": ["claim-retrieval", "evidence-trace", "citation-latency"], "successMode": "all" },
+      { "id": "weak-region", "title": "Find the weakest region", "prompt": "Inspect the latency contradiction and the evidence it destabilizes.", "nodeIds": ["contradiction-latency", "evidence-fallback", "citation-fallback"], "successNodeIds": ["contradiction-latency", "citation-fallback"], "successMode": "all" }
+    ]
+  },
+  "claim": {
+    "title": "Retrieval trace remains co-visible",
+    "id": "claim-retrieval",
+    "statement": "Dense retrieval evidence should stay navigable without collapsing into a rigid bibliography stack.",
+    "confidence": 0.91,
+    "importance": 0.92,
+    "stiffness": 0.9,
+    "maxWidth": 4.4,
+    "lineHeight": 0.29
+  },
+  "answerBlocks": [
+    { "id": "answer-bridge", "text": "The runtime keeps answer and trace nodes co-visible while still allowing citation gravity and focus shifts.", "confidence": 0.86, "importance": 0.82, "maxWidth": 4.1, "lineHeight": 0.26 },
+    { "id": "answer-fallback", "text": "Fallback retrieval remains weaker and should read as a lower-confidence basin rather than an equal column.", "confidence": 0.68, "importance": 0.72, "stiffness": 0.58, "maxWidth": 3.7, "lineHeight": 0.24 }
+  ],
+  "evidence": [
+    { "id": "evidence-trace", "text": "Trace spans remain near the claim when relation forces and reading-order targets agree.", "confidence": 0.9, "importance": 0.86, "supports": ["claim-retrieval"], "figures": ["figure-trace-map"] },
+    { "id": "evidence-ranking", "text": "Citation-linked retrieval scores preserve local order under pan, focus, and replay.", "confidence": 0.88, "importance": 0.82, "supports": ["answer-bridge"] },
+    { "id": "evidence-fallback", "text": "Fallback evidence stays readable but should remain visibly softer than the primary trace.", "confidence": 0.74, "importance": 0.74, "supports": ["answer-fallback"] },
+    { "id": "evidence-bridge", "text": "Host bridge overlays can attach to solved retrieval nodes without taking over layout ownership.", "confidence": 0.83, "importance": 0.76, "supports": ["answer-bridge"] }
+  ],
+  "contradictions": [
+    { "id": "contradiction-latency", "text": "Late retrieval hops can scatter evidence far enough to break the reading trace.", "confidence": 0.38, "importance": 0.68, "targets": ["claim-retrieval"], "idealDistance": 2.3, "weight": 0.92 },
+    { "id": "contradiction-overfit", "text": "A purely citation-driven layout can overfit relevance scores and obscure bridge nodes.", "confidence": 0.46, "importance": 0.7, "targets": ["answer-bridge"], "idealDistance": 2.1, "weight": 0.76 }
+  ],
+  "figures": [
+    { "id": "figure-trace-map", "imageId": "retrieval-map", "clusterId": "figure-trace", "confidence": 0.8, "importance": 0.68, "stiffness": 0.52, "figureSide": "right", "targets": ["evidence-trace"] }
+  ],
+  "citations": [
+    { "id": "citation-latency", "label": "[R1] Trace replay · 96 runs", "confidence": 0.9, "targets": ["evidence-trace"], "weight": 0.8, "idealDistance": 1.2 },
+    { "id": "citation-ranking", "label": "[R2] Rank audit · 12k spans", "confidence": 0.84, "targets": ["evidence-ranking"], "weight": 0.76, "idealDistance": 1.2 },
+    { "id": "citation-fallback", "label": "[R3] Fallback probe · 3 degradations", "confidence": 0.64, "targets": ["evidence-fallback"], "weight": 0.7, "idealDistance": 1.2 }
+  ],
+  "tokens": [
+    { "id": "token-trace", "text": "trace-first", "confidence": 0.9, "targetId": "evidence-trace", "weight": 0.68, "idealDistance": 0.92 },
+    { "id": "token-latency", "text": "latency drift", "confidence": 0.42, "targetId": "contradiction-latency", "weight": 0.68, "idealDistance": 0.92 }
+  ],
+  "relations": [
+    { "from": "evidence-ranking", "to": "evidence-trace", "type": "related", "weight": 0.48, "idealDistance": 1.5 },
+    { "from": "evidence-bridge", "to": "evidence-ranking", "type": "related", "weight": 0.44, "idealDistance": 1.4 }
+  ]
+}

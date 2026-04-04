@@ -72,6 +72,8 @@ src/
     benchmark.js      task benchmark harness + cross-demo result summaries
     contracts.js      scene contract normalization + diagnostics
     fixtures.js       deterministic headless fixture scene
+    knowledgeScene.js packet-to-scene adapter + validation asset provider
+    snapshot.js       serializable runtime snapshot / report export
     runtime.js        headless runtime API
     scaffold.js       deterministic target/scaffold layout
     solver.js         hybrid loss + projection solver
@@ -83,6 +85,7 @@ src/
     dom/
       hostBridge.js   inspector + overlay controls
   app/
+    knowledgePackets.js   built-in packet fixture catalog for workspace ingest
     knowledgeWorkspace.js
   dus.wgsl            field/text/image shader module
   main.js             demo entrypoint
@@ -104,6 +107,11 @@ The headless runtime is exposed through `createDusRuntime(config)` and returns a
 - `getSceneDiagnostics()`
 - `getExplainability()`
 - `explainNode(nodeId)`
+- `getScene()`
+- `getInteractionField()`
+- `getSnapshot(options?)`
+- `exportSnapshot(options?)`
+- `importSnapshot(snapshot)`
 - `hitTest(point)`
 - `bindHostBridge(bridge)`
 - `setInteractionField(field)`
@@ -122,6 +130,7 @@ The knowledge demo no longer relies on an inline hand-built scene. It now flows 
 
 ```text
 knowledge packet JSON
+  -> fixture catalog / custom packet URL
   -> packet adapter
   -> semantic document
   -> normalized scene contract
@@ -130,6 +139,14 @@ knowledge packet JSON
 ```
 
 That packet layer is the first concrete step toward ingesting real LLM/retrieval output instead of demo-only scene objects.
+
+The repo now ships a packet fixture catalog, not just one sample payload. Knowledge scenes can be loaded from:
+
+- the default workspace packet
+- several built-in scenario packets
+- an explicit `?packet=` URL override
+
+Packet diagnostics are preserved through ingest metadata so the runtime can surface what was dropped or normalized instead of hiding that work.
 
 Task-oriented scenes can also expose benchmark runs through scene metadata. The runtime demos now use that layer to:
 
@@ -145,6 +162,16 @@ The explainability surface is now a first-class runtime export rather than only 
 - active constraints and nearby neighbors
 - relation summaries
 - a compact narrative for "why is this node here?"
+
+For regression work and offline debugging, the runtime can also export and restore deterministic snapshots containing:
+
+- normalized scene state
+- scene diagnostics
+- scaffold target and initial poses
+- solver node state
+- debug totals and convergence traces
+- interaction-field state
+- compact scene summaries suited for diff-based review
 
 Before solving, scenes are normalized through a contract layer:
 
@@ -205,14 +232,34 @@ http://127.0.0.1:8000/?demo=knowledge
 The knowledge workspace can also load an alternate packet at runtime:
 
 ```text
+http://127.0.0.1:8000/?demo=knowledge&packetId=incident-triage
+http://127.0.0.1:8000/?demo=knowledge&packetId=model-comparison
 http://127.0.0.1:8000/?demo=knowledge&packet=/absolute-or-relative-packet.json
 ```
+
+Use `packetId` for built-in fixtures and `packet` for a custom file or URL override.
 
 Validate a packet offline before opening it in the browser:
 
 ```powershell
 cd D:\Projects\DUS
 npm run validate:packet -- .\src\app\knowledge-packet.json
+```
+
+Validate every bundled packet fixture in one pass:
+
+```powershell
+cd D:\Projects\DUS
+npm run validate:packets
+```
+
+Export a deterministic runtime report for a packet or the core fixture:
+
+```powershell
+cd D:\Projects\DUS
+npm run export:report -- workspace
+npm run export:report -- incident-triage --out .\artifacts\incident-triage.report.json
+npm run export:report -- fixture:core
 ```
 
 If `serve` is unavailable:
@@ -256,12 +303,13 @@ What is real already:
 - renderer adapter split
 - DOM host bridge concept
 - knowledge workspace wedge
+- packet fixture catalog + diagnostics-preserving ingest
+- repeatable browser validation scripts
 
 What is still missing:
 
 - stable external API
 - broader test coverage
-- reproducible browser validation in this shell environment
 - GPU solver path for large scenes
 - text selection / input / IME quality
 - accessibility semantics beyond the current host bridge overlay

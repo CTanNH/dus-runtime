@@ -20,6 +20,7 @@ The current knowledge demo also has a higher-level ingest path:
 
 ```text
 knowledge packet
+  -> built-in fixture catalog or custom packet URL
   -> packet adapter
   -> semantic document
   -> normalized scene
@@ -100,6 +101,13 @@ The runtime now has a first upstream-facing adapter layer for knowledge packets.
 The packet adapter expands that structure into a semantic document, which is then converted into the scene contract consumed by the runtime.
 
 This is strategically important. It means DUS is starting to own an input pipeline for AI-native surfaces instead of only consuming hand-authored demo scenes.
+
+`src/core/knowledgeScene.js` now sits at that seam. It is the narrow bridge that takes a packet payload plus an asset provider and returns:
+
+- normalized packet diagnostics
+- semantic document output
+- built scene
+- scene-contract diagnostics
 
 ### 2. Scaffold build
 
@@ -213,7 +221,9 @@ This split is essential if DUS is to become infrastructure instead of only a vis
 
 The current wedge is intentionally narrow: an AI knowledge workspace.
 
-That workspace is now fed by a local `knowledge-packet.json` asset rather than a hard-coded inline scene object, and it can be overridden with a `?packet=` query parameter for external packet experiments.
+That workspace is now fed by a packet fixture catalog rather than a hard-coded inline scene object. It can also be overridden with a `?packet=` query parameter for external packet experiments.
+
+The ingest path now exposes diagnostics and packet summaries back through scene metadata. That matters because normalization is part of the runtime contract, not just a hidden preprocessing step.
 
 Why this wedge:
 

@@ -159,7 +159,27 @@ export function normalizeKnowledgePacket(packet) {
   return { packet: normalized, diagnostics };
 }
 
-function createMetadata(packet) {
+function createPacketSummary(packet, diagnostics, source) {
+  return {
+    sourceId: source?.id ?? null,
+    sourceLabel: source?.label ?? null,
+    sourceKind: source?.type ?? "packet",
+    sourceHref: source?.href ?? null,
+    warningCount: diagnostics.warnings.length,
+    warnings: diagnostics.warnings.slice(0, 6).map((entry) => ({ ...entry })),
+    counts: {
+      answerBlocks: packet.answerBlocks.length,
+      evidence: packet.evidence.length,
+      contradictions: packet.contradictions.length,
+      figures: packet.figures.length,
+      citations: packet.citations.length,
+      tokens: packet.tokens.length,
+      relations: packet.relations.length
+    }
+  };
+}
+
+function createMetadata(packet, diagnostics, source) {
   return {
     demoId: packet.metadata?.demoId ?? "knowledge",
     title: packet.metadata?.title ?? "Knowledge Workspace",
@@ -169,7 +189,8 @@ function createMetadata(packet) {
     intent: packet.metadata?.intent ?? "task",
     watchFor: [...(packet.metadata?.watchFor ?? [])],
     guideSteps: [...(packet.metadata?.guideSteps ?? [])],
-    tasks: [...(packet.metadata?.tasks ?? [])]
+    tasks: [...(packet.metadata?.tasks ?? [])],
+    packet: createPacketSummary(packet, diagnostics, source)
   };
 }
 
@@ -326,7 +347,7 @@ function mapTokens(packet, text, relations) {
   }
 }
 
-export function buildKnowledgeDocumentFromPacket(packet) {
+export function buildKnowledgeDocumentFromPacket(packet, options = {}) {
   const normalized = normalizeKnowledgePacket(packet);
   packet = normalized.packet;
   const text = [];
@@ -346,7 +367,7 @@ export function buildKnowledgeDocumentFromPacket(packet) {
   }
 
   return {
-    metadata: createMetadata(packet),
+    metadata: createMetadata(packet, normalized.diagnostics, options.source),
     text,
     images,
     relations,

@@ -3,6 +3,7 @@ import path from "node:path";
 
 const ROOT = process.cwd();
 const REPORT_PATH = path.join(ROOT, "artifacts", "validation-report.json");
+const MAX_REPORT_AGE_MS = 10 * 60 * 1000;
 const ALLOWED_WARNINGS = new Set([
   "The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127"
 ]);
@@ -24,6 +25,13 @@ async function main() {
   }
 
   const report = JSON.parse(raw);
+  const generatedAt = typeof report.generatedAt === "string" ? Date.parse(report.generatedAt) : NaN;
+  if (!Number.isFinite(generatedAt)) {
+    fail("Validation report is missing a valid generatedAt timestamp.");
+  }
+  if (Date.now() - generatedAt > MAX_REPORT_AGE_MS) {
+    fail("Validation report is stale. Run the browser validation again.");
+  }
   const errors = summarizeMessages(report.consoleMessages ?? [], "error");
   const warnings = summarizeMessages(report.consoleMessages ?? [], "warning")
     .filter((text) => !ALLOWED_WARNINGS.has(text));
@@ -41,13 +49,15 @@ async function main() {
   if ((report.stress?.fps ?? 0) < 55) fail(`Stress FPS dropped too low: ${report.stress?.fps ?? 0}`);
   if ((report.deltas?.layout ?? 0) > 1000) fail(`DOM layout churn is still too high: ${report.deltas.layout}`);
   if ((report.deltas?.recalcStyle ?? 0) > 1000) fail(`DOM style recalculation churn is still too high: ${report.deltas.recalcStyle}`);
-  if ((report.deltas?.nodes ?? 0) > 250) fail(`DOM node churn is still too high: ${report.deltas.nodes}`);
+  if ((report.deltas?.nodes ?? 0) > 240) fail(`DOM node growth is still too high: ${report.deltas.nodes}`);
+  if ((report.finalMetrics?.Nodes ?? 0) > 380) fail(`Final DOM node count is still too high: ${report.finalMetrics?.Nodes ?? 0}`);
 
   console.log(JSON.stringify({
     fps: Number((report.stress?.fps ?? 0).toFixed(2)),
     layoutDelta: report.deltas?.layout ?? 0,
     recalcStyleDelta: report.deltas?.recalcStyle ?? 0,
     nodeDelta: report.deltas?.nodes ?? 0,
+    finalNodes: report.finalMetrics?.Nodes ?? 0,
     heapRange: report.heap?.range ?? 0
   }, null, 2));
 }
