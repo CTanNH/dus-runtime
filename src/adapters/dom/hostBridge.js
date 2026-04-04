@@ -322,7 +322,9 @@ export function createDomHostBridge(options) {
 
         guideActions.replaceChildren(
           createButton("Replay scene", () => options.actions.replay()),
-          createButton("Fit all", () => options.actions.fitCamera())
+          createButton("Fit all", () => options.actions.fitCamera()),
+          createButton("Export runs", () => options.actions.exportBenchmark?.()),
+          createButton("Clear runs", () => options.actions.clearBenchmark?.())
         );
       }
 

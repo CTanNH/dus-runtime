@@ -269,6 +269,13 @@ npm run export:report -- incident-triage --out .\artifacts\incident-triage.repor
 npm run export:report -- fixture:core
 ```
 
+Export benchmark runs from the in-browser guide and merge multiple exported reports offline:
+
+```powershell
+cd D:\Projects\DUS
+npm run compare:benchmarks -- .\artifacts\knowledge.json .\artifacts\baseline.json .\artifacts\benchmark-merged.json
+```
+
 If `serve` is unavailable:
 
 ```powershell

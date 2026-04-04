@@ -411,7 +411,7 @@ export async function createWebGpuRendererAdapter(options) {
               textArray[textOffset + 12] = pose.id === selectedId ? 1.0 : 0.0;
               textArray[textOffset + 13] = pose.id === focusId ? 1.0 : pose.focusInfluence;
               textArray[textOffset + 14] = pose.overlapHeat;
-              textArray[textOffset + 15] = run.distanceRange ?? 4.0;
+              textArray[textOffset + 15] = (run.fontMode === "bitmap-fallback" ? -1.0 : 1.0) * (run.distanceRange ?? 4.0);
               textOffset += CONTENT_STRIDE;
             }
           }

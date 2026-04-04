@@ -68,6 +68,14 @@ fn median3(value: vec3<f32>) -> f32 {
   return max(min(value.x, value.y), min(max(value.x, value.y), value.z));
 }
 
+fn msdf_screen_px_range(uv: vec2<f32>, distance_range: f32) -> f32 {
+  let tex_size_u32 = textureDimensions(media_texture);
+  let tex_size = vec2<f32>(f32(tex_size_u32.x), f32(tex_size_u32.y));
+  let unit_range = vec2<f32>(distance_range, distance_range) / max(tex_size, vec2<f32>(1.0, 1.0));
+  let screen_tex_size = vec2<f32>(1.0, 1.0) / max(fwidth(uv), vec2<f32>(1.0e-5, 1.0e-5));
+  return max(0.5 * dot(unit_range, screen_tex_size), 1.0);
+}
+
 fn camera_scale() -> f32 {
   return max(max(abs(U.camera[0].x), abs(U.camera[1].y)), 1.0e-4);
 }
@@ -276,13 +284,13 @@ fn fs_panel(in: PanelOut) -> @location(0) vec4<f32> {
   let heat_mix = saturate(heat * U.render.y);
 
   if (!field_mode && is_text) {
-    let outline_alpha = border * (0.015 + 0.16 * max(focus, selected) + 0.06 * heat_mix);
-    let ambient_alpha = alpha * (0.01 + 0.02 * importance);
+    let outline_alpha = border * (0.04 + 0.16 * max(focus, selected) + 0.06 * heat_mix);
+    let ambient_alpha = alpha * (0.035 + 0.03 * importance);
     let text_shell_alpha = max(outline_alpha, ambient_alpha) + halo * 0.06;
     if (text_shell_alpha <= 1.0e-4) {
       discard;
     }
-    let shell_color = mix(vec3<f32>(0.08, 0.10, 0.14), tone, 0.12 + 0.18 * max(focus, selected));
+    let shell_color = mix(vec3<f32>(0.05, 0.07, 0.11), tone, 0.08 + 0.14 * max(focus, selected));
     return vec4<f32>(shell_color, text_shell_alpha);
   }
 
@@ -334,25 +342,33 @@ fn fs_text(in: ContentOut) -> @location(0) vec4<f32> {
   let selected = saturate(in.style1.x);
   let focus = saturate(in.style1.y);
   let heat = saturate(in.style1.z);
-  let distance_range = max(in.style1.w, 1.0);
+  let font_metric = in.style1.w;
+  let bitmap_font = font_metric < 0.0;
+  let distance_range = max(abs(font_metric), 1.0);
   let field_mode = U.render.x > 0.5;
 
   let pull = select(vec2<f32>(0.0, 0.0), field_pullback(in.world, confidence, stiffness), field_mode);
   let local = in.local - pull * mix(0.32, 0.08, stiffness);
-  let local_uv = vec2<f32>(
+  let raw_local_uv = vec2<f32>(
     local.x / max(in.half_size.x * 2.0, 1.0e-5) + 0.5,
     0.5 - local.y / max(in.half_size.y * 2.0, 1.0e-5)
   );
-  if (any(local_uv < vec2<f32>(0.0, 0.0)) || any(local_uv > vec2<f32>(1.0, 1.0))) {
-    discard;
-  }
-
+  let inside = select(0.0, 1.0, all(raw_local_uv >= vec2<f32>(0.0, 0.0)) && all(raw_local_uv <= vec2<f32>(1.0, 1.0)));
+  let local_uv = clamp(raw_local_uv, vec2<f32>(0.0, 0.0), vec2<f32>(1.0, 1.0));
   let atlas_uv = in.uv_rect.xy + local_uv * (in.uv_rect.zw - in.uv_rect.xy);
   let texel = textureSampleLevel(media_texture, media_sampler, atlas_uv, 0.0);
+  let coverage = saturate(texel.a) * inside;
+  let tex_size_u32 = textureDimensions(media_texture);
+  let tex_size = vec2<f32>(f32(tex_size_u32.x), f32(tex_size_u32.y));
+  let bitmap_softness = clamp(max(fwidth(atlas_uv.x) * tex_size.x, fwidth(atlas_uv.y) * tex_size.y) * 0.35, 0.08, 0.30);
+  let screen_px_range = msdf_screen_px_range(atlas_uv, distance_range);
   let signed_distance = median3(texel.rgb) - 0.5;
-  let span = max(in.half_size.x + in.half_size.y, 0.12);
-  let screen_px_range = max(distance_range * camera_scale() * span * 0.18, 1.0);
-  let alpha = smoothstep(-0.42, 0.42, signed_distance * screen_px_range) * clamp(texel.a, 0.0, 1.0);
+  var alpha = 0.0;
+  if (bitmap_font) {
+    alpha = smoothstep(0.5 - bitmap_softness, 0.5 + bitmap_softness, coverage);
+  } else {
+    alpha = smoothstep(-0.5, 0.5, signed_distance * screen_px_range) * coverage;
+  }
   if (alpha <= 1.0e-4) {
     discard;
   }
@@ -361,9 +377,17 @@ fn fs_text(in: ContentOut) -> @location(0) vec4<f32> {
   let warm = vec3<f32>(0.98, 0.54, 0.34);
   let cold = vec3<f32>(0.20, 0.34, 0.62);
   let luminous = mix(vec3<f32>(1.0, 0.80, 0.76), vec3<f32>(0.84, 0.93, 1.0), confidence);
-  var text_color = select(mix(warm, cold, confidence), luminous, field_mode);
-  text_color = mix(text_color, vec3<f32>(0.98, 0.52, 0.32), heat * U.render.y * 0.22);
-  text_color = text_color + tone * select(0.03, 0.08, field_mode) + max(focus, selected) * 0.08 * vec3<f32>(1.0, 1.0, 1.0);
+  let accent = mix(warm, cold, confidence);
+  var text_color = vec3<f32>(0.05, 0.09, 0.14);
+  if (field_mode) {
+    text_color = luminous;
+    text_color = mix(text_color, vec3<f32>(0.98, 0.52, 0.32), heat * U.render.y * 0.22);
+    text_color = text_color + tone * 0.08;
+  } else {
+    text_color = mix(vec3<f32>(0.98, 0.88, 0.84), vec3<f32>(0.86, 0.95, 1.0), confidence);
+    text_color = mix(text_color, accent, 0.08 + 0.10 * max(focus, selected) + 0.10 * heat * U.render.y);
+  }
+  text_color = text_color + max(focus, selected) * 0.08 * vec3<f32>(1.0, 1.0, 1.0);
   return vec4<f32>(text_color, alpha);
 }
 

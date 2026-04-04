@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 
 import { KNOWLEDGE_PACKET_SPECS } from "../src/app/knowledgePackets.js";
 import { normalizeSceneContract } from "../src/core/contracts.js";
-import { createBenchmarkHarness } from "../src/core/benchmark.js";
+import { createBenchmarkHarness, createBenchmarkReport } from "../src/core/benchmark.js";
 import { createFixtureScene } from "../src/core/fixtures.js";
 import { buildKnowledgeSceneFromDocument } from "../src/core/ingest.js";
 import { buildKnowledgeSceneFromPacket } from "../src/core/knowledgeScene.js";
@@ -437,6 +437,70 @@ await run("benchmark harness records comparable task runs", async () => {
   assert.ok(baselineState.tasks[0].comparison);
   assert.equal(baselineState.tasks[0].comparison.demoId, "knowledge");
   assert.ok(baselineState.tasks[0].comparison.elapsedMs > 0);
+
+  const report = baselineHarness.exportReport();
+  assert.equal(report.schemaId, "dus-benchmark-report");
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.summary.totalRuns, 2);
+  assert.equal(report.summary.completedRuns, 2);
+  assert.equal(report.summary.comparisons.length, 1);
+  assert.equal(report.summary.comparisons[0].demos.length, 2);
+  assert.ok(report.summary.comparisons[0].demos.every((entry) => entry.runCount === 1));
+
+  baselineHarness.clearRuns();
+  assert.equal(baselineHarness.exportReport().summary.totalRuns, 0);
 });
 
-console.log("Passed 13 core runtime checks.");
+await run("benchmark report factory summarizes cross-demo runs", async () => {
+  const report = createBenchmarkReport({
+    demoId: "knowledge",
+    tasks: [
+      {
+        id: "trace-support",
+        benchmarkId: "trace-support",
+        title: "Trace support",
+        prompt: "Follow the support chain.",
+        nodeIds: ["claim", "support", "citation"],
+        successNodeIds: ["claim", "support", "citation"]
+      }
+    ],
+    runs: [
+      {
+        taskId: "trace-support",
+        benchmarkId: "trace-support",
+        title: "Trace support",
+        prompt: "Follow the support chain.",
+        demoId: "knowledge",
+        startedAt: 0,
+        elapsedMs: 1800,
+        completed: true,
+        completedNodeIds: ["claim", "support", "citation"],
+        successNodeIds: ["claim", "support", "citation"],
+        actionCounts: { select: 3, focus: 0, pan: 1, zoom: 0, fit: 0, replay: 0 }
+      },
+      {
+        taskId: "trace-support",
+        benchmarkId: "trace-support",
+        title: "Trace support",
+        prompt: "Follow the support chain.",
+        demoId: "baseline",
+        startedAt: 0,
+        elapsedMs: 2600,
+        completed: true,
+        completedNodeIds: ["claim", "support", "citation"],
+        successNodeIds: ["claim", "support", "citation"],
+        actionCounts: { select: 3, focus: 0, pan: 2, zoom: 1, fit: 0, replay: 0 }
+      }
+    ]
+  });
+
+  assert.equal(report.summary.totalRuns, 2);
+  assert.equal(report.summary.comparisons.length, 1);
+  const comparison = report.summary.comparisons[0];
+  assert.equal(comparison.benchmarkId, "trace-support");
+  assert.equal(comparison.demos[0].demoId, "baseline");
+  assert.equal(comparison.demos[1].demoId, "knowledge");
+  assert.equal(comparison.demos[1].bestElapsedMs, 1800);
+});
+
+console.log("Passed 14 core runtime checks.");

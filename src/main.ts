@@ -113,6 +113,16 @@ function layoutBounds(layout, padding = 0.42) {
   };
 }
 
+function downloadJson(filename, value) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 async function main() {
   const currentDemo = resolveDemoSpec();
   document.body.style.margin = "0";
@@ -145,6 +155,8 @@ async function main() {
     storage: window.localStorage,
     now: () => performance.now()
   });
+  window.__DUS_EXPORT_BENCHMARK__ = () => benchmark.exportReport();
+  window.__DUS_CLEAR_BENCHMARK__ = () => benchmark.clearRuns();
   runtime.setScene(scene);
   runtime.solve(currentDemo.initialSolveIterations, 1.0 / 60.0);
 
@@ -333,6 +345,14 @@ async function main() {
         fitCameraToLayout();
       },
       replay
+      ,
+      exportBenchmark() {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        downloadJson(`dus-benchmark-${currentDemo.id}-${timestamp}.json`, benchmark.exportReport());
+      },
+      clearBenchmark() {
+        benchmark.clearRuns();
+      }
     },
     getViewPreset: () => {
       const mode = renderer.getMode();

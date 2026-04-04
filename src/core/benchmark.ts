@@ -53,6 +53,133 @@ function initialActionCounts() {
   };
 }
 
+function cloneActionCounts(actionCounts = {}) {
+  return {
+    focus: Number(actionCounts.focus ?? 0),
+    select: Number(actionCounts.select ?? 0),
+    pan: Number(actionCounts.pan ?? 0),
+    zoom: Number(actionCounts.zoom ?? 0),
+    fit: Number(actionCounts.fit ?? 0),
+    replay: Number(actionCounts.replay ?? 0)
+  };
+}
+
+function serializeRun(run) {
+  return {
+    taskId: String(run.taskId),
+    benchmarkId: String(run.benchmarkId ?? run.taskId),
+    title: String(run.title ?? run.taskId),
+    prompt: String(run.prompt ?? ""),
+    demoId: String(run.demoId ?? "demo"),
+    startedAt: Number(run.startedAt ?? 0),
+    elapsedMs: Number(run.elapsedMs ?? 0),
+    completed: Boolean(run.completed),
+    reason: String(run.reason ?? (run.completed ? "completed" : "unknown")),
+    completedNodeIds: [...new Set((run.completedNodeIds ?? []).filter(Boolean).map(String))],
+    successNodeIds: [...new Set((run.successNodeIds ?? []).filter(Boolean).map(String))],
+    actionCounts: cloneActionCounts(run.actionCounts),
+    lastEvent: run.lastEvent ? { ...run.lastEvent } : null
+  };
+}
+
+function average(values) {
+  if (!values.length) return null;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((left, right) => left - right);
+  const center = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[center];
+  return (sorted[center - 1] + sorted[center]) * 0.5;
+}
+
+function summarizeRunSet(runs) {
+  const completedRuns = runs.filter((run) => run.completed);
+  const completedElapsed = completedRuns.map((run) => run.elapsedMs);
+  const actionTotals = completedRuns.reduce((totals, run) => {
+    const counts = cloneActionCounts(run.actionCounts);
+    for (const [key, value] of Object.entries(counts)) {
+      totals[key] = (totals[key] ?? 0) + value;
+    }
+    return totals;
+  }, cloneActionCounts());
+  const completedCount = completedRuns.length;
+  const actionAverages = Object.fromEntries(
+    Object.entries(actionTotals).map(([key, value]) => [key, completedCount > 0 ? Number((value / completedCount).toFixed(3)) : 0])
+  );
+
+  return {
+    runCount: runs.length,
+    completedCount,
+    completionRate: runs.length > 0 ? Number((completedCount / runs.length).toFixed(4)) : 0,
+    meanElapsedMs: completedCount > 0 ? Number(average(completedElapsed).toFixed(3)) : null,
+    medianElapsedMs: completedCount > 0 ? Number(median(completedElapsed).toFixed(3)) : null,
+    bestElapsedMs: completedCount > 0 ? Number(Math.min(...completedElapsed).toFixed(3)) : null,
+    actionAverages
+  };
+}
+
+function buildComparisons(tasks, runs) {
+  const comparisons = [];
+  for (const task of tasks) {
+    const benchmarkId = task.benchmarkId ?? task.id;
+    const benchmarkRuns = runs.filter((run) => run.benchmarkId === benchmarkId);
+    const byDemo = new Map();
+    for (const run of benchmarkRuns) {
+      const list = byDemo.get(run.demoId) ?? [];
+      list.push(run);
+      byDemo.set(run.demoId, list);
+    }
+
+    comparisons.push({
+      benchmarkId,
+      taskId: task.id,
+      title: task.title,
+      demos: [...byDemo.entries()]
+        .map(([demoId, demoRuns]) => ({
+          demoId,
+          ...summarizeRunSet(demoRuns)
+        }))
+        .sort((left, right) => left.demoId.localeCompare(right.demoId))
+    });
+  }
+  return comparisons;
+}
+
+export function createBenchmarkReport(options = {}) {
+  const tasks = (options.tasks ?? []).map(normalizeTask);
+  const runs = (options.runs ?? []).map(serializeRun);
+  const generatedAt = Number(options.generatedAt ?? Date.now());
+  const demoId = String(options.demoId ?? "demo");
+  const comparisons = buildComparisons(tasks, runs);
+
+  return {
+    schemaId: "dus-benchmark-report",
+    schemaVersion: 1,
+    generatedAt,
+    demoId,
+    storageKey: options.storageKey ?? "dus-benchmark-v1",
+    tasks: tasks.map((task) => ({
+      id: task.id,
+      benchmarkId: task.benchmarkId,
+      title: task.title,
+      prompt: task.prompt,
+      completionEvent: task.completionEvent,
+      successMode: task.successMode,
+      nodeIds: [...task.nodeIds],
+      successNodeIds: [...task.successNodeIds]
+    })),
+    runs,
+    summary: {
+      totalRuns: runs.length,
+      completedRuns: runs.filter((run) => run.completed).length,
+      comparisons
+    }
+  };
+}
+
 function summarizeTask(task, activeRun, runs, demoId) {
   const ownRuns = runs.filter((run) => run.demoId === demoId && run.taskId === task.id);
   const peerRuns = runs.filter((run) => run.demoId !== demoId && run.benchmarkId === task.benchmarkId);
@@ -260,7 +387,27 @@ export function createBenchmarkHarness(options = {}) {
     },
 
     getRuns() {
-      return [...runs];
+      return runs.map(serializeRun);
+    },
+
+    clearRuns() {
+      runs = [];
+      persistRuns(options.storage ?? null, storageKey, runs);
+      if (activeRun) {
+        activeRun.completedSet.clear();
+        activeRun.completedNodeIds.length = 0;
+      }
+      return buildState();
+    },
+
+    exportReport() {
+      return createBenchmarkReport({
+        demoId,
+        storageKey,
+        generatedAt: safeNow(clock),
+        tasks,
+        runs
+      });
     },
 
     getState() {

@@ -21,6 +21,7 @@
     "validate:packet": "node ./tools/validate-packet.mjs",
     "validate:packets": "node ./tools/validate-packet.mjs --all",
     "export:report": "node ./tools/export-runtime-report.mjs",
+    "compare:benchmarks": "node ./tools/compare-benchmark-reports.mjs",
     "serve": "npx serve . -l 8000",
     "serve:node": "node ./tools/static-server.mjs --root . --host 127.0.0.1 --port 8000",
     "serve:ps": "powershell -ExecutionPolicy Bypass -File ./tools/static-server.ps1 -Root . -Port 8000"

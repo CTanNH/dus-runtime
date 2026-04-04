@@ -9,9 +9,9 @@ const FONT_TIMEOUT_MS = 7000;
 const DEFAULT_LINE_HEIGHT = 0.30;
 const DEFAULT_MAX_WIDTH = 2.6;
 const FALLBACK_FONT_FAMILY = "'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
-const FALLBACK_FONT_SIZE = 44;
-const FALLBACK_CELL_WIDTH = 64;
-const FALLBACK_CELL_HEIGHT = 80;
+const FALLBACK_FONT_SIZE = 60;
+const FALLBACK_CELL_WIDTH = 80;
+const FALLBACK_CELL_HEIGHT = 104;
 const FALLBACK_COLUMNS = 16;
 const FALLBACK_DISTANCE_RANGE = 1.4;
 const FALLBACK_ASCII_START = 32;
@@ -69,7 +69,7 @@ async function loadMsdfFont() {
     ]);
 
     if (!jsonResponse.ok) throw new Error(`MSDF JSON ${jsonResponse.status} ${jsonResponse.statusText}`);
-    return { font: await jsonResponse.json(), bitmap };
+    return { font: await jsonResponse.json(), bitmap, mode: "msdf" };
   } finally {
     clearTimeout(timeout);
   }
@@ -182,7 +182,8 @@ async function buildFallbackMsdfFont() {
       chars,
       kernings: []
     },
-    bitmap
+    bitmap,
+    mode: "bitmap-fallback"
   };
 }
 
@@ -405,7 +406,8 @@ export async function createAssetProvider() {
       paddingX,
       paddingY,
       lineHeight: lineHeightWorld,
-      distanceRange
+      distanceRange,
+      fontMode: msdf.mode ?? "msdf"
     };
 
     textRuns.set(id, run);
