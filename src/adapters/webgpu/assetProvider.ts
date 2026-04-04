@@ -187,7 +187,10 @@ async function buildFallbackMsdfFont() {
   };
 }
 
-async function loadMsdfFontWithFallback() {
+async function loadMsdfFontWithFallback(options = {}) {
+  if (options.forceFallbackFont) {
+    return buildFallbackMsdfFont();
+  }
   try {
     return await loadMsdfFont();
   } catch (error) {
@@ -272,8 +275,8 @@ function buildImageAtlas() {
   return { width, height, data, images };
 }
 
-export async function createAssetProvider() {
-  const msdf = await loadMsdfFontWithFallback();
+export async function createAssetProvider(options = {}) {
+  const msdf = await loadMsdfFontWithFallback(options);
   const imageAtlas = buildImageAtlas();
 
   const chars = msdf.font.chars ?? [];

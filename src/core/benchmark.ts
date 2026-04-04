@@ -197,6 +197,8 @@ function summarizeTask(task, activeRun, runs, demoId) {
     benchmarkId: task.benchmarkId,
     title: task.title,
     prompt: task.prompt,
+    nodeIds: [...task.nodeIds],
+    successNodeIds: [...task.successNodeIds],
     status: active ? "active" : lastRun?.completed ? "completed" : "idle",
     completionEvent: task.completionEvent,
     successMode: task.successMode,

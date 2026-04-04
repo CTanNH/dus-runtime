@@ -125,6 +125,8 @@ function downloadJson(filename, value) {
 
 async function main() {
   const currentDemo = resolveDemoSpec();
+  const urlParams = new URLSearchParams(window.location.search);
+  const forceFallbackFont = urlParams.get("font") === "fallback";
   document.body.style.margin = "0";
   document.body.style.background = "#03070f";
   document.body.style.overflow = "hidden";
@@ -133,7 +135,7 @@ async function main() {
   canvas.style.display = "block";
   document.body.replaceChildren(canvas);
 
-  const assetProvider = await createAssetProvider();
+  const assetProvider = await createAssetProvider({ forceFallbackFont });
   const builtScene = await currentDemo.buildScene(assetProvider);
   const scene = {
     ...builtScene,
@@ -269,6 +271,20 @@ async function main() {
     if (!nodeIds.length) return;
     interaction.selectedNodeId = nodeIds[0];
     frameNodes(nodeIds);
+  }
+
+  function selectNode(nodeId, options = {}) {
+    const pose = runtime.getLayout().nodePoses.find((entry) => entry.id === nodeId);
+    if (!pose) return false;
+
+    interaction.selectedNodeId = nodeId;
+    interaction.focusNodeId = nodeId;
+    interaction.queryPulse = Math.max(interaction.queryPulse, 0.8);
+    benchmark.recordSelection(nodeId);
+    if (options.frame !== false) {
+      focusNode(nodeId);
+    }
+    return true;
   }
 
   function runTask(taskId, nodeIds) {
@@ -604,6 +620,46 @@ async function main() {
   }
 
   window.__DUS_READY__ = true;
+  window.__DUS__ = {
+    getDemoId: () => currentDemo.id,
+    getSceneMetadata: () => ({ ...(scene.metadata ?? {}) }),
+    getBenchmarkState: () => benchmark.getState(),
+    getLayout: () => runtime.getLayout(),
+    getDebugState: () => runtime.getDebugState(),
+    getExplainability: () => runtime.getExplainability(),
+    exportBenchmark: () => benchmark.exportReport(),
+    clearBenchmark: () => benchmark.clearRuns(),
+    runTask: (taskId) => {
+      const task = (scene.metadata?.tasks ?? []).find((entry) => entry.id === taskId);
+      if (!task) return benchmark.getState();
+      runTask(task.id, task.nodeIds);
+      return benchmark.getState();
+    },
+    focusNode: (nodeId) => {
+      focusNode(nodeId);
+      return benchmark.getState();
+    },
+    focusNodes: (nodeIds) => {
+      focusNodes(nodeIds ?? []);
+      return benchmark.getState();
+    },
+    selectNode: (nodeId, options = {}) => {
+      const ok = selectNode(nodeId, options);
+      return { ok, benchmark: benchmark.getState() };
+    },
+    setViewPreset: (preset) => {
+      applyViewPreset(preset);
+      return preset;
+    },
+    fitCamera: () => {
+      fitCameraToLayout();
+      return camera;
+    },
+    replay: () => {
+      replay();
+      return benchmark.getState();
+    }
+  };
   requestAnimationFrame(frame);
 }
 

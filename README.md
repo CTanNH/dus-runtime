@@ -70,6 +70,7 @@ DUS tries to make those properties first-class instead of bolting them on after 
 src/
   core/
     benchmark.js      task benchmark harness + cross-demo result summaries
+    benchmarkStudy.js offline study aggregation + markdown summaries
     contracts.js      scene contract normalization + diagnostics
     fixtures.js       deterministic headless fixture scene
     knowledgeScene.js packet-to-scene adapter + validation asset provider
@@ -292,7 +293,14 @@ Export benchmark runs from the in-browser guide and merge multiple exported repo
 ```powershell
 cd D:\Projects\DUS
 npm run compare:benchmarks -- .\artifacts\knowledge.json .\artifacts\baseline.json .\artifacts\benchmark-merged.json
+npm run study:benchmarks -- .\artifacts\knowledge.json .\artifacts\baseline.json
+npm run benchmark:scripted -- knowledge .\artifacts\scripted-knowledge.json
+npm run study:scripted
 ```
+
+`compare:benchmarks` now emits a structured `dus-benchmark-study` payload, and `study:benchmarks` writes both `artifacts/benchmark-study.json` and a human-readable `artifacts/benchmark-study.md`.
+
+`benchmark:scripted` drives the in-browser task harness through `window.__DUS__` and emits a `dus-scripted-benchmark-run` wrapper. `study:scripted` runs both `knowledge` and `baseline`, then produces a merged study plus Markdown summary in one step. The scripted path forces `?font=fallback` so CI and local automation do not stall on remote MSDF fetches.
 
 If `serve` is unavailable:
 

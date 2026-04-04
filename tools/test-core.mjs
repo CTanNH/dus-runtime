@@ -5,6 +5,7 @@ import { getKnowledgeBundleFixtureById, listKnowledgeBundleFixtures } from "../s
 import { KNOWLEDGE_PACKET_SPECS } from "../src/app/knowledgePackets.js";
 import { normalizeSceneContract } from "../src/core/contracts.js";
 import { createBenchmarkHarness, createBenchmarkReport } from "../src/core/benchmark.js";
+import { createBenchmarkStudy, renderBenchmarkStudyMarkdown } from "../src/core/benchmarkStudy.js";
 import {
   buildKnowledgePacketFromBundle,
   KNOWLEDGE_BUNDLE_SCHEMA_ID,
@@ -568,4 +569,78 @@ await run("benchmark report factory summarizes cross-demo runs", async () => {
   assert.equal(comparison.demos[1].bestElapsedMs, 1800);
 });
 
-console.log("Passed 16 core runtime checks.");
+await run("benchmark study ranks demos and renders markdown summaries", async () => {
+  const knowledgeReport = createBenchmarkReport({
+    demoId: "knowledge",
+    tasks: [
+      {
+        id: "trace-support",
+        benchmarkId: "trace-support",
+        title: "Trace support",
+        prompt: "Follow the support chain.",
+        nodeIds: ["claim", "support", "citation"],
+        successNodeIds: ["claim", "support", "citation"]
+      }
+    ],
+    runs: [
+      {
+        taskId: "trace-support",
+        benchmarkId: "trace-support",
+        title: "Trace support",
+        prompt: "Follow the support chain.",
+        demoId: "knowledge",
+        startedAt: 0,
+        elapsedMs: 1700,
+        completed: true,
+        completedNodeIds: ["claim", "support", "citation"],
+        successNodeIds: ["claim", "support", "citation"],
+        actionCounts: { select: 3, focus: 0, pan: 1, zoom: 0, fit: 0, replay: 0 }
+      }
+    ]
+  });
+  const baselineReport = createBenchmarkReport({
+    demoId: "baseline",
+    tasks: [
+      {
+        id: "trace-support",
+        benchmarkId: "trace-support",
+        title: "Trace support",
+        prompt: "Follow the support chain.",
+        nodeIds: ["claim", "support", "citation"],
+        successNodeIds: ["claim", "support", "citation"]
+      }
+    ],
+    runs: [
+      {
+        taskId: "trace-support",
+        benchmarkId: "trace-support",
+        title: "Trace support",
+        prompt: "Follow the support chain.",
+        demoId: "baseline",
+        startedAt: 0,
+        elapsedMs: 2500,
+        completed: true,
+        completedNodeIds: ["claim", "support", "citation"],
+        successNodeIds: ["claim", "support", "citation"],
+        actionCounts: { select: 3, focus: 0, pan: 2, zoom: 1, fit: 0, replay: 0 }
+      }
+    ]
+  });
+
+  const study = createBenchmarkStudy({
+    reports: [knowledgeReport, baselineReport],
+    generatedAt: 1700000000000
+  });
+  const markdown = renderBenchmarkStudyMarkdown(study);
+
+  assert.equal(study.schemaId, "dus-benchmark-study");
+  assert.equal(study.summary.taskCount, 1);
+  assert.equal(study.summary.comparableTaskCount, 1);
+  assert.equal(study.tasks[0].leader.demoId, "knowledge");
+  assert.equal(study.summary.winsByDemo.knowledge, 1);
+  assert.ok(markdown.includes("# DUS Benchmark Study"));
+  assert.ok(markdown.includes("Trace support"));
+  assert.ok(markdown.includes("knowledge"));
+});
+
+console.log("Passed 17 core runtime checks.");

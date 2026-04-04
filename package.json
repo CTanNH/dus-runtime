@@ -24,6 +24,9 @@
     "validate:bundles": "node ./tools/validate-bundle.mjs --all",
     "export:report": "node ./tools/export-runtime-report.mjs",
     "compare:benchmarks": "node ./tools/compare-benchmark-reports.mjs",
+    "study:benchmarks": "node ./tools/compare-benchmark-reports.mjs --markdown ./artifacts/benchmark-study.md --out ./artifacts/benchmark-study.json",
+    "benchmark:scripted": "node ./tools/run-scripted-benchmark.mjs",
+    "study:scripted": "node ./tools/run-scripted-study.mjs",
     "serve": "npx serve . -l 8000",
     "serve:node": "node ./tools/static-server.mjs --root . --host 127.0.0.1 --port 8000",
     "serve:ps": "powershell -ExecutionPolicy Bypass -File ./tools/static-server.ps1 -Root . -Port 8000"

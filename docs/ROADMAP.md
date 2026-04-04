@@ -75,6 +75,8 @@ Completed:
 - packet fixture catalog
 - packet validator
 - packet -> semantic document -> scene contract pipeline
+- benchmark study/report seam for cross-demo comparison
+- scripted browser benchmark pipeline
 
 Next:
 
